@@ -25,7 +25,7 @@ options parse_command_line(int argc, char **argv) {
   struct options opts;
 
   while (true) {
-    o = getopt_long(argc, argv, NULL, long_options, &option_index);
+    o = getopt_long(argc, argv, "q:c:i:", long_options, &option_index);
     if (o < 0) {
       break;
     }
