@@ -8,9 +8,9 @@
 #include "indri/QueryEnvironment.hpp"
 
 struct options {
-  char *query;
-  char *corpus;
-  char *index;
+  const char *query;
+  const char *corpus;
+  const char *index;
 };
 
 options parse_command_line(int argc, char **argv) {
