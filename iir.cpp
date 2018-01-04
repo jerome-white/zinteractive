@@ -2,6 +2,7 @@
 #include <vector>
 #include <string>
 #include <fstream>
+#include <stdexcept>
 
 #include <getopt.h>
 
@@ -47,10 +48,10 @@ options parse_command_line(int argc, char **argv) {
 
 std::string get_file_contents(const char *filename) {
   std::string contents;
-  std::ifstream in(filename, std::ios::in | std::ios::binary);
 
+  std::ifstream in(filename, std::ios::in | std::ios::binary);
   if (!in) {
-    throw(errno);
+    throw(std::invalid_argument(filename));
   }
   
   in.seekg(0, std::ios::end);
