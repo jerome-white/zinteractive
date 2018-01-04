@@ -14,20 +14,20 @@ import org.apache.lucene.document.TextField;
 import org.apache.lucene.document.StringField;
 
 import util.TermCollection;
-    
+
 public class DocumentIndexer implements Callable<String> {
     private Path document;
     private IndexWriter index;
     private Collection<String> alterations;
 
     public DocumentIndexer(Path document,
-                   IndexWriter index,
-                   Collection<String> alterations) {
+                           IndexWriter index,
+                           Collection<String> alterations) {
         this.document = document;
         this.index = index;
         this.alterations = alterations;
     }
-    
+
     public DocumentIndexer(Path document, IndexWriter index) {
         this(document, index, new ArrayList<String>());
     }
@@ -43,10 +43,10 @@ public class DocumentIndexer implements Callable<String> {
 
         if (changed > 0 || alterations.isEmpty()) {
             Document doc = new Document();
-            
+
             doc.add(new StringField(name, "docno", Field.Store.YES));
             doc.add(new TextField(terms.toString(), "text", Field.Store.NO));
-            
+
             try {
                 index.addDocument(doc);
             }

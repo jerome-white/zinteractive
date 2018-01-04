@@ -35,7 +35,7 @@ public class TermCollection extends TreeSet<Term> {
             throw new UncheckedIOException(ex);
         }
 
-        this.document = document;        
+        this.document = document;
     }
 
     public String toString() {
@@ -55,7 +55,7 @@ public class TermCollection extends TreeSet<Term> {
     public Path getLocation() {
         return document;
     }
-                
+
     public int decrypt(String value) {
         int altered = 0;
 

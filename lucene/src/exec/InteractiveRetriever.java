@@ -70,16 +70,16 @@ public class InteractiveRetriever {
             List<Callable<String>> tasks = new LinkedList<Callable<String>>();
 
             TermCollection queryTerms = new TermCollection(query);
-        
+
             while (true) {
                 Collection<String> alterations = new ArrayList<String>();
-            
+
                 /*
                  * Update documents and (re-)index
                  */
                 try (DirectoryStream<Path> stream =
                      Files.newDirectoryStream(corpus)) {
-                    tasks.clear();                
+                    tasks.clear();
                     for (Path file : stream) {
                         DocumentIndexer docind =
                             new DocumentIndexer(file, writer, alterations);
@@ -123,5 +123,5 @@ public class InteractiveRetriever {
 
         executors.shutdown();
     }
-    
+
 }
