@@ -117,6 +117,7 @@ public class InteractiveRetriever {
                     i += 1;
                 }
 
+		// selector.setFeedback();		
                 break;
             }
         }
