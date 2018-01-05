@@ -19,14 +19,15 @@ import java.lang.reflect.UndeclaredThrowableException;
 
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.NIOFSDirectory;
-import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.Term;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
-import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
@@ -35,6 +36,8 @@ import org.apache.lucene.queryparser.classic.ParseException;
 
 import util.TermCollection;
 import task.DocumentIndexer;
+import select.SelectionStrategy;
+import select.SequentialSelector;
 
 public class InteractiveRetriever {
     public static void main(String[] args) {
@@ -64,26 +67,32 @@ public class InteractiveRetriever {
         try {
             Analyzer analyzer = new StandardAnalyzer();
             Directory directory = new NIOFSDirectory(index);
+
             IndexWriterConfig config = new IndexWriterConfig(analyzer);
             IndexWriter writer = new IndexWriter(directory, config);
 
+            TermCollection queryTerms = new TermCollection(query);
+            QueryParser qp = new QueryParser("text", analyzer);
+            Query qry = qp.parse(queryTerms.toString());
+
             List<Callable<String>> tasks = new LinkedList<Callable<String>>();
 
-            TermCollection queryTerms = new TermCollection(query);
+            SelectionStrategy selector = new SequentialSelector(corpus);
 
-            while (true) {
-                Collection<String> alterations = new ArrayList<String>();
-
+            for (Collection<String> choices : selector) {
                 /*
                  * Update documents and (re-)index
                  */
+                for (String s : choices) {
+                    writer.deleteDocuments(new Term("text", s));
+                }
+                writer.commit();
+
+                tasks.clear();
                 try (DirectoryStream<Path> stream =
                      Files.newDirectoryStream(corpus)) {
-                    tasks.clear();
                     for (Path file : stream) {
-                        DocumentIndexer docind =
-                            new DocumentIndexer(file, writer, alterations);
-                        tasks.add(docind);
+                        tasks.add(new DocumentIndexer(file, writer, choices));
                     }
                 }
                 executors.invokeAll(tasks);
@@ -94,9 +103,6 @@ public class InteractiveRetriever {
                  */
                 IndexReader reader = DirectoryReader.open(directory);
                 IndexSearcher searcher = new IndexSearcher(reader);
-
-                QueryParser qp = new QueryParser("text", analyzer);
-                Query qry = qp.parse(queryTerms.toString());
                 TopDocs hits = searcher.search(qry, count);
 
                 int i = 1;
