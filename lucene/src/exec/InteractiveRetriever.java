@@ -8,7 +8,6 @@ import java.nio.file.Files;
 import java.nio.file.DirectoryStream;
 import java.util.List;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedList;
 import java.util.StringJoiner;
 import java.util.logging.Level;
@@ -79,20 +78,19 @@ public class InteractiveRetriever {
 
             SelectionStrategy selector = new SequentialSelector(corpus);
 
-            for (Collection<String> choices : selector) {
+            for (String choice : selector) {
                 /*
                  * Update documents and (re-)index
                  */
-                for (String s : choices) {
-                    writer.deleteDocuments(new Term("text", s));
-                }
+                Term term = new Term("text", choice);
+                writer.deleteDocuments(term);
                 writer.commit();
 
                 tasks.clear();
                 try (DirectoryStream<Path> stream =
                      Files.newDirectoryStream(corpus)) {
                     for (Path file : stream) {
-                        tasks.add(new DocumentIndexer(file, writer, choices));
+                        tasks.add(new DocumentIndexer(file, writer, choice));
                     }
                 }
                 executors.invokeAll(tasks);
@@ -117,7 +115,7 @@ public class InteractiveRetriever {
                     i += 1;
                 }
 
-		// selector.setFeedback();		
+                // selector.setFeedback();
                 break;
             }
         }
