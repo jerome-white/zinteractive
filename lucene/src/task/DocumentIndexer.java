@@ -3,6 +3,7 @@ package task;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.Callable;
@@ -26,6 +27,12 @@ public class DocumentIndexer implements Callable<String> {
         this.document = document;
         this.index = index;
         this.alterations = alterations;
+    }
+
+    public DocumentIndexer(Path document,
+                           IndexWriter index,
+                           String alteration) {
+        this(document, index, Arrays.asList(alteration));
     }
 
     public DocumentIndexer(Path document, IndexWriter index) {
