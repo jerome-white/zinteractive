@@ -11,6 +11,10 @@ import java.util.TreeSet;
 public class TermCollection extends TreeSet<Term> {
     private Path document;
 
+    public TermCollection() {
+        super();
+    }
+
     public TermCollection(Path document) {
         try (BufferedReader reader = Files.newBufferedReader(document)) {
             boolean headerRead = false;
@@ -35,11 +39,12 @@ public class TermCollection extends TreeSet<Term> {
             throw new UncheckedIOException(ex);
         }
 
-        this.document = document;
+        setLocation(document);
     }
 
     public String toString() {
         StringJoiner sentence = new StringJoiner(" ");
+        sentence.setEmptyValue("");
 
         for (Term term : this) {
             sentence.add(term.toString());
@@ -56,16 +61,10 @@ public class TermCollection extends TreeSet<Term> {
         return document;
     }
 
-    public int decrypt(String value) {
-        int altered = 0;
-
-        for (Term term : this) {
-            if (!term.isEncrypted() && value.equals(term.toString())) {
-                term.decrypt();
-                altered++;
-            }
+    public void setLocation(Path path) {
+        if (document != null) {
+            throw new IllegalArgumentException();
         }
-
-        return altered;
+        document = path;
     }
 }

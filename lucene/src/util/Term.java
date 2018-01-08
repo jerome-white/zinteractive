@@ -1,6 +1,7 @@
 package util;
 
 import java.lang.Comparable;
+import java.util.StringJoiner;
 
 public class Term implements Comparable<Term> {
     private int position;
@@ -12,6 +13,10 @@ public class Term implements Comparable<Term> {
         this.name = name;
         this.ngram = ngram;
         this.position = position;
+    }
+
+    public Term(String ngram, int position) {
+        this(ngram, ngram, position);
     }
 
     public int compareTo(Term o) {
@@ -33,6 +38,10 @@ public class Term implements Comparable<Term> {
         return name.compareTo(o.name);
     }
 
+    public boolean is(String other) {
+        return other.equals(toString());
+    }
+
     public int length() {
         return ngram.length();
     }
@@ -41,11 +50,25 @@ public class Term implements Comparable<Term> {
         return name;
     }
 
-    public void decrypt() {
-        name = ngram;
+    public String toCSV(String delimiter) {
+        StringJoiner csvString = new StringJoiner(delimiter);
+        csvString
+            .add(name)
+            .add(ngram)
+            .add(String.valueOf(position));
+
+        return csvString.toString();
+    }
+
+    public String toCSV() {
+        return toCSV(",");
     }
 
     public boolean isEncrypted() {
         return !name.equals(ngram);
+    }
+
+    public Term decrypt() {
+        return new Term(ngram, position);
     }
 }
