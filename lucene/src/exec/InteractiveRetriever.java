@@ -11,9 +11,11 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.StringJoiner;
 import java.util.logging.Level;
+import java.util.concurrent.Future;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ExecutionException;
 import java.lang.reflect.UndeclaredThrowableException;
 
 import org.apache.lucene.store.Directory;
@@ -33,8 +35,11 @@ import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.queryparser.classic.ParseException;
 
+import util.LogAgent;
 import util.TermCollection;
 import task.DocumentIndexer;
+import task.DocumentUpdater;
+import task.DocumentJustifier;
 import select.SelectionStrategy;
 import select.SequentialSelector;
 
@@ -58,6 +63,8 @@ public class InteractiveRetriever {
             workers = procs;
         }
 
+        LogAgent.setLevel(Level.ALL);
+
         ExecutorService executors = Executors.newFixedThreadPool(workers);
 
         /*
@@ -70,35 +77,75 @@ public class InteractiveRetriever {
             IndexWriterConfig config = new IndexWriterConfig(analyzer);
             IndexWriter writer = new IndexWriter(directory, config);
 
-            TermCollection queryTerms = new TermCollection(query);
             QueryParser qp = new QueryParser("text", analyzer);
-            Query qry = qp.parse(queryTerms.toString());
+            Query qry = qp.parse(new String(Files.readAllBytes(query)));
 
-            List<Callable<String>> tasks = new LinkedList<Callable<String>>();
+            List<Callable<TermCollection>> phase1 = new ArrayList<>();
+            List<Callable<TermCollection>> phase2 = new ArrayList<>();
+            List<Callable<Void>> phase3 = new ArrayList<>();
+            List<Future<TermCollection>> response;
 
             SelectionStrategy selector = new SequentialSelector(corpus);
 
             for (String choice : selector) {
+                LogAgent.LOGGER.info(choice);
+
                 /*
-                 * Update documents and (re-)index
+                 * Remove documents containing the chosen term.
                  */
+                LogAgent.LOGGER.info("INDEX: delete");
                 Term term = new Term("text", choice);
                 writer.deleteDocuments(term);
                 writer.commit();
 
-                tasks.clear();
+                /*
+                 * Identify documents that require indexing. This is
+                 * either the documents that were deleted, or all
+                 * documents if nothing has ever been indexed.
+                 */
+                LogAgent.LOGGER.info("INDEX: justify");
+
+                phase1.clear();
                 try (DirectoryStream<Path> stream =
                      Files.newDirectoryStream(corpus)) {
                     for (Path file : stream) {
-                        tasks.add(new DocumentIndexer(file, writer, choice));
+                        DocumentJustifier justification =
+                            new DocumentJustifier(file, analyzer, directory);
+                        phase1.add(justification);
                     }
                 }
-                executors.invokeAll(tasks);
+                response = executors.invokeAll(phase1);
+
+                /*
+                 * Uncrypt and re-write documents (to disk) that
+                 * require updating.
+                 */
+                phase2.clear();
+                for (Future<TermCollection> terms : response) {
+                    TermCollection collection = terms.get();
+                    if (collection != null) {
+                        phase2.add(new DocumentUpdater(collection, choice));
+                    }
+                }
+                response = executors.invokeAll(phase2);
+
+                /*
+                 * Write files to the index.
+                 */
+                phase3.clear();
+                for (Future<TermCollection> terms : response) {
+                    TermCollection collection = terms.get();
+                    phase3.add(new DocumentIndexer(collection,choice,writer));
+                }
+                executors.invokeAll(phase3);
+
                 writer.commit();
 
                 /*
                  * Query
                  */
+                LogAgent.LOGGER.info("QUERY");
+
                 IndexReader reader = DirectoryReader.open(directory);
                 IndexSearcher searcher = new IndexSearcher(reader);
                 TopDocs hits = searcher.search(qry, count);
@@ -122,7 +169,9 @@ public class InteractiveRetriever {
         catch (IOException ex) {
             throw new UncheckedIOException(ex);
         }
-        catch (InterruptedException | ParseException ex) {
+        catch (InterruptedException |
+               ParseException |
+               ExecutionException ex) {
             throw new UndeclaredThrowableException(ex);
         }
 
