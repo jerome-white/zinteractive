@@ -16,52 +16,44 @@ import org.apache.lucene.document.StringField;
 
 import util.TermCollection;
 
-public class DocumentIndexer implements Callable<String> {
-    private Path document;
+public class DocumentIndexer implements Callable<Void> {
+    private TermCollection document;
     private IndexWriter index;
     private Collection<String> alterations;
 
-    public DocumentIndexer(Path document,
-                           IndexWriter index,
-                           Collection<String> alterations) {
+    public DocumentIndexer(TermCollection document,
+                           Collection<String> alterations,
+                           IndexWriter index) {
         this.document = document;
-        this.index = index;
         this.alterations = alterations;
+        this.index = index;
     }
 
-    public DocumentIndexer(Path document,
-                           IndexWriter index,
-                           String alteration) {
-        this(document, index, Arrays.asList(alteration));
+    public DocumentIndexer(TermCollection document,
+                           String alteration,
+                           IndexWriter index) {
+        this(document, Arrays.asList(alteration), index);
     }
 
-    public DocumentIndexer(Path document, IndexWriter index) {
-        this(document, index, new ArrayList<String>());
+    public DocumentIndexer(TermCollection document, IndexWriter index) {
+        this(document, new ArrayList<String>(), index);
     }
 
-    public String call() {
-        TermCollection terms = new TermCollection(document);
-        String name = terms.getName();
+    public Void call() {
+        String name = document.getName();
+        Document doc = new Document();
 
-        int changed = 0;
-        for (String alt : alterations) {
-            changed += terms.decrypt(alt);
+        doc.add(new StringField(name, "docno", Field.Store.YES));
+        doc.add(new TextField(document.toString(), "content",
+                              Field.Store.NO));
+
+        try {
+            index.addDocument(doc);
+        }
+        catch (IOException ex) {
+            throw new UncheckedIOException(ex);
         }
 
-        if (changed > 0 || alterations.isEmpty()) {
-            Document doc = new Document();
-
-            doc.add(new StringField(name, "docno", Field.Store.YES));
-            doc.add(new TextField(terms.toString(), "text", Field.Store.NO));
-
-            try {
-                index.addDocument(doc);
-            }
-            catch (IOException ex) {
-                throw new UncheckedIOException(ex);
-            }
-        }
-
-        return name;
+        return (Void)null;
     }
 }
