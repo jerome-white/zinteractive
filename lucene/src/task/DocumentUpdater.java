@@ -34,7 +34,7 @@ public class DocumentUpdater implements Callable<TermCollection> {
     }
 
     public TermCollection call() {
-        LogAgent.LOGGER.info(document.getName());
+        LogAgent.LOGGER.info(document.getName() + " unencrypt");
 
         TermCollection ptr = document;
         TermCollection scratch = new TermCollection();

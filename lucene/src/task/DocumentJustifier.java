@@ -36,7 +36,6 @@ public class DocumentJustifier implements Callable<TermCollection> {
 
     public TermCollection call() {
         TermCollection terms = new TermCollection(document);
-        LogAgent.LOGGER.info(terms.getName());
 
         try {
             QueryParser qp = new QueryParser("docno", analyzer);
@@ -47,6 +46,7 @@ public class DocumentJustifier implements Callable<TermCollection> {
 
             switch (searcher.count(qry)) {
             case 0:
+                LogAgent.LOGGER.info(terms.getName() + " missing");
                 return terms;
             case 1:
                 return null;

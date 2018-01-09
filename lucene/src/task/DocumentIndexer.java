@@ -44,7 +44,7 @@ public class DocumentIndexer implements Callable<Void> {
         Document doc = new Document();
         String name = document.getName();
 
-        LogAgent.LOGGER.info(name);
+        LogAgent.LOGGER.info(name + " index");
 
         doc.add(new StringField(name, "docno", Field.Store.YES));
         doc.add(new TextField(document.toString(), "content",
@@ -57,6 +57,6 @@ public class DocumentIndexer implements Callable<Void> {
             throw new UncheckedIOException(ex);
         }
 
-        return (Void)null;
+        return null;
     }
 }
