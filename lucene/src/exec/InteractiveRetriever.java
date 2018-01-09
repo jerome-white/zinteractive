@@ -83,7 +83,7 @@ public class InteractiveRetriever {
             IndexWriterConfig config = new IndexWriterConfig(analyzer);
             IndexWriter writer = new IndexWriter(directory, config);
 
-            QueryParser qp = new QueryParser("text", analyzer);
+            QueryParser qp = new QueryParser("content", analyzer);
             Query qry = qp.parse(new String(Files.readAllBytes(query)));
 
             LogAgent.LOGGER.info("INITIALIZE: Selection strategy");
