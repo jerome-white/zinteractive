@@ -10,6 +10,7 @@ import java.util.Collection;
 import java.lang.reflect.UndeclaredThrowableException;
 
 import util.Term;
+import util.LogAgent;
 import util.TermCollection;
 import util.TermCollectionWriter;
 
@@ -33,6 +34,8 @@ public class DocumentUpdater implements Callable<TermCollection> {
     }
 
     public TermCollection call() {
+        LogAgent.LOGGER.info(document.getName());
+
         TermCollection ptr = document;
         TermCollection scratch = new TermCollection();
 

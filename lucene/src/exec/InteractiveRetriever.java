@@ -67,10 +67,16 @@ public class InteractiveRetriever {
 
         ExecutorService executors = Executors.newFixedThreadPool(workers);
 
+        List<Callable<TermCollection>> phase1 = new ArrayList<>();
+        List<Callable<TermCollection>> phase2 = new ArrayList<>();
+        List<Callable<Void>> phase3 = new ArrayList<>();
+        List<Future<TermCollection>> response;
+
         /*
          *
          */
         try {
+            LogAgent.LOGGER.info("INITIALIZE: Lucene");
             Analyzer analyzer = new StandardAnalyzer();
             Directory directory = new NIOFSDirectory(index);
 
@@ -80,13 +86,10 @@ public class InteractiveRetriever {
             QueryParser qp = new QueryParser("text", analyzer);
             Query qry = qp.parse(new String(Files.readAllBytes(query)));
 
-            List<Callable<TermCollection>> phase1 = new ArrayList<>();
-            List<Callable<TermCollection>> phase2 = new ArrayList<>();
-            List<Callable<Void>> phase3 = new ArrayList<>();
-            List<Future<TermCollection>> response;
-
+            LogAgent.LOGGER.info("INITIALIZE: Selection strategy");
             SelectionStrategy selector = new SequentialSelector(corpus);
 
+            LogAgent.LOGGER.info("BEGIN");
             for (String choice : selector) {
                 LogAgent.LOGGER.info(choice);
 
@@ -103,7 +106,7 @@ public class InteractiveRetriever {
                  * either the documents that were deleted, or all
                  * documents if nothing has ever been indexed.
                  */
-                LogAgent.LOGGER.info("INDEX: justify");
+                LogAgent.LOGGER.info("INDEX: identify");
 
                 phase1.clear();
                 try (DirectoryStream<Path> stream =
@@ -117,9 +120,11 @@ public class InteractiveRetriever {
                 response = executors.invokeAll(phase1);
 
                 /*
-                 * Uncrypt and re-write documents (to disk) that
+                 * Decrypt and re-write documents (to disk) that
                  * require updating.
                  */
+                LogAgent.LOGGER.info("INDEX: decrypt");
+
                 phase2.clear();
                 for (Future<TermCollection> terms : response) {
                     TermCollection collection = terms.get();
@@ -132,6 +137,8 @@ public class InteractiveRetriever {
                 /*
                  * Write files to the index.
                  */
+                LogAgent.LOGGER.info("INDEX: write");
+
                 phase3.clear();
                 for (Future<TermCollection> terms : response) {
                     TermCollection collection = terms.get();

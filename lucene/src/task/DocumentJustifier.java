@@ -18,6 +18,7 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.queryparser.classic.ParseException;
 
+import util.LogAgent;
 import util.TermCollection;
 
 public class DocumentJustifier implements Callable<TermCollection> {
@@ -35,6 +36,7 @@ public class DocumentJustifier implements Callable<TermCollection> {
 
     public TermCollection call() {
         TermCollection terms = new TermCollection(document);
+        LogAgent.LOGGER.info(terms.getName());
 
         try {
             QueryParser qp = new QueryParser("docno", analyzer);

@@ -16,6 +16,7 @@ import java.util.NoSuchElementException;
 
 import util.Term;
 import util.TermCollection;
+import util.LogAgent;
 
 public class SequentialSelector extends SelectionTemplate {
     Deque<String> cache;

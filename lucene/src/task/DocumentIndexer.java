@@ -14,6 +14,7 @@ import org.apache.lucene.document.Document;
 import org.apache.lucene.document.TextField;
 import org.apache.lucene.document.StringField;
 
+import util.LogAgent;
 import util.TermCollection;
 
 public class DocumentIndexer implements Callable<Void> {
@@ -40,8 +41,10 @@ public class DocumentIndexer implements Callable<Void> {
     }
 
     public Void call() {
-        String name = document.getName();
         Document doc = new Document();
+        String name = document.getName();
+
+        LogAgent.LOGGER.info(name);
 
         doc.add(new StringField(name, "docno", Field.Store.YES));
         doc.add(new TextField(document.toString(), "content",
