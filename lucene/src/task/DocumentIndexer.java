@@ -17,39 +17,24 @@ import org.apache.lucene.document.StringField;
 import util.LogAgent;
 import util.TermCollection;
 
-public class DocumentIndexer implements Callable<Void> {
-    private TermCollection document;
+/*
+ * Write files to the index.
+ */
+public class DocumentIndexer implements Assembler {
     private IndexWriter index;
-    private Collection<String> alterations;
 
-    public DocumentIndexer(TermCollection document,
-                           Collection<String> alterations,
-                           IndexWriter index) {
-        this.document = document;
-        this.alterations = alterations;
+    public DocumentIndexer(IndexWriter index) {
         this.index = index;
     }
 
-    public DocumentIndexer(TermCollection document,
-                           String alteration,
-                           IndexWriter index) {
-        this(document, Arrays.asList(alteration), index);
-    }
-
-    public DocumentIndexer(TermCollection document, IndexWriter index) {
-        this(document, new ArrayList<String>(), index);
-    }
-
-    public Void call() {
+    public TermCollection assemble(TermCollection terms) {
         Document doc = new Document();
-        String name = document.getName();
+        String name = terms.getName();
 
         LogAgent.LOGGER.info(name + " index");
 
         doc.add(new StringField(name, "docno", Field.Store.YES));
-        doc.add(new TextField(document.toString(), "content",
-                              Field.Store.NO));
-
+        doc.add(new TextField(terms.toString(), "content", Field.Store.NO));
         try {
             index.addDocument(doc);
         }
@@ -57,6 +42,6 @@ public class DocumentIndexer implements Callable<Void> {
             throw new UncheckedIOException(ex);
         }
 
-        return null;
+        return terms;
     }
 }

@@ -15,29 +15,28 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.queryparser.classic.ParseException;
 
 import util.LogAgent;
 import util.TermCollection;
 
-public class DocumentJustifier implements Callable<TermCollection> {
-    private Path document;
-    private Analyzer analyzer;
+/*
+ * Identify documents that require indexing. This is either the
+ * documents that were deleted, or all documents if nothing has ever
+ * been indexed.
+ */
+public class DocumentJustifier implements Assembler {
     private Directory directory;
 
-    public DocumentJustifier(Path document,
-                             Analyzer analyzer,
-                             Directory directory) {
-        this.document = document;
-        this.analyzer = analyzer;
+    public DocumentJustifier(Directory directory) {
         this.directory = directory;
     }
 
-    public TermCollection call() {
-        TermCollection terms = new TermCollection(document);
-
+    public TermCollection assemble(TermCollection terms) throws AssemblerException {
         try {
+            Analyzer analyzer = new StandardAnalyzer();
             QueryParser qp = new QueryParser("docno", analyzer);
             Query qry = qp.parse(terms.getName());
 
@@ -49,7 +48,7 @@ public class DocumentJustifier implements Callable<TermCollection> {
                 LogAgent.LOGGER.info(terms.getName() + " missing");
                 return terms;
             case 1:
-                return null;
+                throw new AssemblerException();
             default:
                 throw new IllegalStateException();
             }

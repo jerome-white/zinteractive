@@ -8,14 +8,11 @@ import java.nio.file.Files;
 import java.nio.file.DirectoryStream;
 import java.util.List;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.StringJoiner;
 import java.util.logging.Level;
-import java.util.concurrent.Future;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ExecutionException;
 import java.lang.reflect.UndeclaredThrowableException;
 
 import org.apache.lucene.store.Directory;
@@ -36,10 +33,10 @@ import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.queryparser.classic.ParseException;
 
 import util.LogAgent;
-import util.TermCollection;
 import task.DocumentIndexer;
 import task.DocumentUpdater;
 import task.DocumentJustifier;
+import task.DocumentPipeline;
 import select.SelectionStrategy;
 import select.SequentialSelector;
 
@@ -67,10 +64,7 @@ public class InteractiveRetriever {
 
         ExecutorService executors = Executors.newFixedThreadPool(workers);
 
-        List<Callable<TermCollection>> phase1 = new ArrayList<>();
-        List<Callable<TermCollection>> phase2 = new ArrayList<>();
-        List<Callable<Void>> phase3 = new ArrayList<>();
-        List<Future<TermCollection>> response;
+        List<Callable<String>> tasks = new ArrayList<>();
 
         /*
          *
@@ -101,51 +95,21 @@ public class InteractiveRetriever {
                 writer.deleteDocuments(term);
                 writer.commit();
 
-                /*
-                 * Identify documents that require indexing. This is
-                 * either the documents that were deleted, or all
-                 * documents if nothing has ever been indexed.
-                 */
                 LogAgent.LOGGER.info("INDEX: identify");
 
-                phase1.clear();
+                tasks.clear();
                 try (DirectoryStream<Path> stream =
                      Files.newDirectoryStream(corpus)) {
                     for (Path file : stream) {
-                        DocumentJustifier justification =
-                            new DocumentJustifier(file, analyzer, directory);
-                        phase1.add(justification);
+                        DocumentPipeline pipe = new DocumentPipeline(file);
+                        pipe
+                            .addJob(new DocumentJustifier(directory))
+                            .addJob(new DocumentUpdater(choice))
+                            .addJob(new DocumentIndexer(writer));
+                        tasks.add(pipe);
                     }
                 }
-                response = executors.invokeAll(phase1);
-
-                /*
-                 * Decrypt and re-write documents (to disk) that
-                 * require updating.
-                 */
-                LogAgent.LOGGER.info("INDEX: decrypt");
-
-                phase2.clear();
-                for (Future<TermCollection> terms : response) {
-                    TermCollection collection = terms.get();
-                    if (collection != null) {
-                        phase2.add(new DocumentUpdater(collection, choice));
-                    }
-                }
-                response = executors.invokeAll(phase2);
-
-                /*
-                 * Write files to the index.
-                 */
-                LogAgent.LOGGER.info("INDEX: write");
-
-                phase3.clear();
-                for (Future<TermCollection> terms : response) {
-                    TermCollection collection = terms.get();
-                    phase3.add(new DocumentIndexer(collection,choice,writer));
-                }
-                executors.invokeAll(phase3);
-
+                executors.invokeAll(tasks);
                 writer.commit();
 
                 /*
@@ -177,8 +141,7 @@ public class InteractiveRetriever {
             throw new UncheckedIOException(ex);
         }
         catch (InterruptedException |
-               ParseException |
-               ExecutionException ex) {
+               ParseException ex) {
             throw new UndeclaredThrowableException(ex);
         }
 
