@@ -1,5 +1,6 @@
 package exec;
 
+import java.lang.AutoCloseable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
@@ -28,14 +29,12 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.document.Document;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.queryparser.classic.ParseException;
 
 import util.LogAgent;
-import util.TermCollection;
 import task.AssemblerException;
 import task.DocumentIndexer;
 import task.DocumentUpdater;
@@ -44,7 +43,106 @@ import task.DocumentPipeline;
 import select.SelectionStrategy;
 import select.SequentialSelector;
 
-public class InteractiveRetriever {
+public class InteractiveRetriever implements AutoCloseable {
+    private IndexWriter writer;
+    private ExecutorService executors;
+    private Query query;
+    private Directory directory;
+
+    public InteractiveRetriever(Path query,
+                                Path index,
+                                int workers) {
+        executors = Executors.newFixedThreadPool(workers);
+
+        LogAgent.LOGGER.fine("INITIALIZE: Lucene");
+        Analyzer analyzer = new StandardAnalyzer();
+        try {
+            directory = new NIOFSDirectory(index);
+
+            IndexWriterConfig config = new IndexWriterConfig(analyzer);
+            writer = new IndexWriter(directory, config);
+
+            QueryParser qp = new QueryParser("content", analyzer);
+            this.query = qp.parse(new String(Files.readAllBytes(query)));
+        }
+        catch (ParseException e) {
+            throw new UndeclaredThrowableException(e);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    public void close() {
+        executors.shutdown();
+    }
+
+    public void index(Path corpus, String choice) {
+        try {
+            doIndex(corpus, choice);
+        }
+        catch (InterruptedException e) {
+            throw new UndeclaredThrowableException(e);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private void doIndex(Path corpus, String choice)
+        throws IOException,
+               InterruptedException {
+        LogAgent.LOGGER.fine("INDEX: delete");
+
+        Term term = new Term("text", choice);
+        writer.deleteDocuments(term);
+        writer.commit();
+
+        LogAgent.LOGGER.fine("INDEX: identify");
+
+        List<Callable<String>> tasks = new ArrayList<>();
+        try (DirectoryStream<Path> stream =
+             Files.newDirectoryStream(corpus)) {
+            for (Path file : stream) {
+                DocumentPipeline pipe = new DocumentPipeline(file);
+                pipe
+                    .addJob(new DocumentJustifier(directory))
+                    .addJob(new DocumentUpdater(choice))
+                    .addJob(new DocumentIndexer(writer));
+                tasks.add(pipe);
+            }
+        }
+
+        for (Future<String> ft : executors.invokeAll(tasks)) {
+            try {
+                String docno = ft.get();
+                LogAgent.LOGGER.info(docno);
+            }
+            catch (ExecutionException e) {
+                Throwable reason = e.getCause();
+                if (!(reason instanceof AssemblerException)) {
+                    throw new IllegalThreadStateException(reason.toString());
+                }
+                // LogAgent.LOGGER.info(message);
+            }
+        }
+
+        writer.commit();
+    }
+
+    public TopDocs query(int count) {
+        LogAgent.LOGGER.fine("QUERY");
+
+        try {
+            IndexReader reader = DirectoryReader.open(directory);
+            IndexSearcher searcher = new IndexSearcher(reader);
+            return searcher.search(query, count);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     public static void main(String[] args) {
         /*
          *
@@ -64,113 +162,30 @@ public class InteractiveRetriever {
             workers = procs;
         }
 
-        LogAgent.setLevel(Level.ALL);
+        LogAgent.setLevel(Level.FINE);
 
-        ExecutorService executors = Executors.newFixedThreadPool(workers);
-
-        List<Callable<String>> tasks = new ArrayList<>();
-
-        /*
-         *
-         */
-        try {
-            LogAgent.LOGGER.info("INITIALIZE: Lucene");
-            Analyzer analyzer = new StandardAnalyzer();
-            Directory directory = new NIOFSDirectory(index);
-
-            IndexWriterConfig config = new IndexWriterConfig(analyzer);
-            IndexWriter writer = new IndexWriter(directory, config);
-
-            QueryParser qp = new QueryParser("content", analyzer);
-            Query qry = qp.parse(new String(Files.readAllBytes(query)));
-
-            LogAgent.LOGGER.info("INITIALIZE: Selection strategy");
+        try (InteractiveRetriever iir = new InteractiveRetriever(query,
+                                                                 index,
+                                                                 workers)) {
             SelectionStrategy selector = new SequentialSelector(corpus);
-
-            LogAgent.LOGGER.info("BEGIN");
             for (String choice : selector) {
-                LogAgent.LOGGER.info(choice);
+                iir.index(corpus, choice);
+                TopDocs hits = iir.query(count);
 
-                /*
-                 * Remove documents containing the chosen term.
-                 */
-                LogAgent.LOGGER.info("INDEX: delete");
-                Term term = new Term("text", choice);
-                writer.deleteDocuments(term);
-                writer.commit();
+                LogAgent.LOGGER.info(choice + " " + hits.totalHits);
 
-                LogAgent.LOGGER.info("INDEX: identify");
-
-                tasks.clear();
-                try (DirectoryStream<Path> stream =
-                     Files.newDirectoryStream(corpus)) {
-                    for (Path file : stream) {
-                        DocumentPipeline pipe = new DocumentPipeline(file);
-                        pipe
-                            .addJob(new DocumentJustifier(directory))
-                            .addJob(new DocumentUpdater(choice))
-                            .addJob(new DocumentIndexer(writer));
-                        tasks.add(pipe);
-                    }
-                }
-
-                try {
-                    List<Future<String>> results = executors.invokeAll(tasks);
-                    for (Future<String> ft : results) {
-                        try {
-                            ft.get();
-                        }
-                        catch (ExecutionException e) {
-                            Throwable reason = e.getCause();
-                            String message = reason.toString();
-                            if (reason instanceof AssemblerException) {
-                                LogAgent.LOGGER.info(message);
-                            }
-                            else {
-                                throw new IllegalThreadStateException(message);
-                            }
-                        }
-                    }
-                }
-                catch (InterruptedException e) {
-                    throw new UndeclaredThrowableException(e);
-                }
-
-                writer.commit();
-
-                /*
-                 * Query
-                 */
-                LogAgent.LOGGER.info("QUERY");
-
-                IndexReader reader = DirectoryReader.open(directory);
-                IndexSearcher searcher = new IndexSearcher(reader);
-                TopDocs hits = searcher.search(qry, count);
-
-                int i = 1;
-                for (ScoreDoc hit : hits.scoreDocs) {
-                    Document doc = searcher.doc(hit.doc);
-                    StringJoiner result = new StringJoiner(" ");
-                    result
-                        .add(String.valueOf(i))
-                        .add(doc.get("docno"))
-                        .add(String.valueOf(hit.score));
-                    System.out.println(result.toString());
-                    i += 1;
-                }
-
-                // selector.setFeedback();
-                break;
+                // int i = 1;
+                // for (ScoreDoc hit : hits.scoreDocs) {
+                //     Document doc = searcher.doc(hit.doc);
+                //     StringJoiner result = new StringJoiner(" ");
+                //     result
+                //         .add(String.valueOf(i))
+                //         .add(doc.get("docno"))
+                //         .add(String.valueOf(hit.score));
+                //     System.out.println(result.toString());
+                //     i += 1;
+                // }
             }
         }
-        catch (IOException ex) {
-            throw new UncheckedIOException(ex);
-        }
-        catch (ParseException ex) {
-            throw new UndeclaredThrowableException(ex);
-        }
-
-        executors.shutdown();
     }
-
 }
