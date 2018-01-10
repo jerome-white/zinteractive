@@ -34,26 +34,38 @@ public class DocumentJustifier implements Assembler {
         this.directory = directory;
     }
 
-    public TermCollection assemble(TermCollection terms) {
+    private Query getQuery(TermCollection terms) {
+        Analyzer analyzer = new StandardAnalyzer();
+        QueryParser qp = new QueryParser("docno", analyzer);
+
         try {
-            Analyzer analyzer = new StandardAnalyzer();
-            QueryParser qp = new QueryParser("docno", analyzer);
-            Query qry = qp.parse(terms.getName());
-
-            IndexReader reader = DirectoryReader.open(directory);
-            IndexSearcher searcher = new IndexSearcher(reader);
-
-            switch (searcher.count(qry)) {
-            case 0:
-                LogAgent.LOGGER.finer(terms.getName() + " missing");
-                return terms;
-            case 1:
-                throw new AssemblerException(terms.getName());
-            default:
-                throw new IllegalStateException();
-            }
+            return qp.parse(terms.getName());
         }
+        catch (ParseException e) {
+            throw new UndeclaredThrowableException(e);
+        }
+    }
+
+    public TermCollection assemble(TermCollection terms) {
+        try (IndexReader reader = DirectoryReader.open(directory)) {
+                IndexSearcher searcher = new IndexSearcher(reader);
+
+                Analyzer analyzer = new StandardAnalyzer();
+                QueryParser qp = new QueryParser("docno", analyzer);
+                Query query = qp.parse(terms.getName());
+
+                switch (searcher.count(query)) {
+                case 0:
+                    LogAgent.LOGGER.finer(terms.getName());
+                    return terms;
+                case 1:
+                    throw new AssemblerException(terms.getName());
+                default:
+                    throw new IllegalStateException();
+                }
+            }
         catch (ParseException | IOException ex) {
+            LogAgent.LOGGER.severe(ex.toString());
             throw new UndeclaredThrowableException(ex);
         }
 

@@ -103,20 +103,20 @@ public class InteractiveRetriever implements AutoCloseable {
         List<Callable<String>> tasks = new ArrayList<>();
         try (DirectoryStream<Path> stream =
              Files.newDirectoryStream(corpus)) {
-            for (Path file : stream) {
-                DocumentPipeline pipe = new DocumentPipeline(file);
-                pipe
-                    .addJob(new DocumentJustifier(directory))
-                    .addJob(new DocumentUpdater(choice))
-                    .addJob(new DocumentIndexer(writer));
-                tasks.add(pipe);
+                for (Path file : stream) {
+                    DocumentPipeline pipe = new DocumentPipeline(file);
+                    pipe
+                        .addJob(new DocumentJustifier(directory))
+                        .addJob(new DocumentUpdater(choice))
+                        .addJob(new DocumentIndexer(writer));
+                    tasks.add(pipe);
+                }
             }
-        }
 
         for (Future<String> ft : executors.invokeAll(tasks)) {
             try {
                 String docno = ft.get();
-                LogAgent.LOGGER.info(docno);
+                LogAgent.LOGGER.fine(docno);
             }
             catch (ExecutionException e) {
                 Throwable reason = e.getCause();
@@ -133,17 +133,19 @@ public class InteractiveRetriever implements AutoCloseable {
     public TopDocs query(int count) {
         LogAgent.LOGGER.fine("QUERY");
 
-        try {
-            IndexReader reader = DirectoryReader.open(directory);
-            IndexSearcher searcher = new IndexSearcher(reader);
-            return searcher.search(query, count);
-        }
+        try (IndexReader reader = DirectoryReader.open(directory)) {
+                IndexSearcher searcher = new IndexSearcher(reader);
+
+                return searcher.search(query, count);
+            }
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
     }
 
     public static void main(String[] args) {
+        LogAgent.setLevel(Level.FINE);
+
         /*
          *
          */
@@ -162,30 +164,29 @@ public class InteractiveRetriever implements AutoCloseable {
             workers = procs;
         }
 
-        LogAgent.setLevel(Level.FINE);
 
         try (InteractiveRetriever iir = new InteractiveRetriever(query,
                                                                  index,
                                                                  workers)) {
-            SelectionStrategy selector = new SequentialSelector(corpus);
-            for (String choice : selector) {
-                iir.index(corpus, choice);
-                TopDocs hits = iir.query(count);
+                SelectionStrategy selector = new SequentialSelector(corpus);
+                for (String choice : selector) {
+                    iir.index(corpus, choice);
+                    TopDocs hits = iir.query(count);
 
-                LogAgent.LOGGER.info(choice + " " + hits.totalHits);
+                    LogAgent.LOGGER.info(choice + " " + hits.totalHits);
 
-                // int i = 1;
-                // for (ScoreDoc hit : hits.scoreDocs) {
-                //     Document doc = searcher.doc(hit.doc);
-                //     StringJoiner result = new StringJoiner(" ");
-                //     result
-                //         .add(String.valueOf(i))
-                //         .add(doc.get("docno"))
-                //         .add(String.valueOf(hit.score));
-                //     System.out.println(result.toString());
-                //     i += 1;
-                // }
+                    // int i = 1;
+                    // for (ScoreDoc hit : hits.scoreDocs) {
+                    //     Document doc = searcher.doc(hit.doc);
+                    //     StringJoiner result = new StringJoiner(" ");
+                    //     result
+                    //         .add(String.valueOf(i))
+                    //         .add(doc.get("docno"))
+                    //         .add(String.valueOf(hit.score));
+                    //     System.out.println(result.toString());
+                    //     i += 1;
+                    // }
+                }
             }
-        }
     }
 }
