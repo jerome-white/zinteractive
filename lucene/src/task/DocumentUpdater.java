@@ -36,23 +36,23 @@ public class DocumentUpdater implements Assembler {
         TermCollection ptr = terms;
         TermCollection scratch = new TermCollection();
 
-	int changes = 0;
+        int changes = 0;
         for (String alt : alterations) {
             for (Term term : ptr) {
-		if (term.is(alt)) {
-		    scratch.add(term.decrypt());
-		    changes++;
-		}
-		else {
-		    scratch.add(term);
-		}
+                if (term.is(alt)) {
+                    scratch.add(term.decrypt());
+                    changes++;
+                }
+                else {
+                    scratch.add(term);
+                }
                 // Term t = term.is(alt) ? term.decrypt() : term;
                 // scratch.add(t);
             }
             ptr = scratch;
             scratch = new TermCollection();
         }
-	LogAgent.LOGGER.finer("decrypt " + terms.getName() + " " + changes);
+        LogAgent.LOGGER.finer("decrypt " + terms.getName() + " " + changes);
 
         scratch.setLocation(terms.getLocation());
         TermCollectionWriter writer = new TermCollectionWriter(scratch);

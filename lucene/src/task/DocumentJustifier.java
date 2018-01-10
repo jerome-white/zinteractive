@@ -38,25 +38,25 @@ public class DocumentJustifier implements Assembler {
 
     public TermCollection assemble(TermCollection terms) {
         try (IndexReader reader = DirectoryReader.open(directory)) {
-                IndexSearcher searcher = new IndexSearcher(reader);
-		Term term = new Term(DocumentIndexer.DOCNO, terms.getName());
-                Query query = new TermQuery(term);
+            IndexSearcher searcher = new IndexSearcher(reader);
+            Term term = new Term(DocumentIndexer.DOCNO, terms.getName());
+            Query query = new TermQuery(term);
 
-                switch (searcher.count(query)) {
-                case 0:
-                    LogAgent.LOGGER.finer("+justified " + terms.getName());
-		    break;
-                case 1:
-                    LogAgent.LOGGER.finer("-justified " + terms.getName());
-                    throw new AssemblerException(terms.getName());
-                default:
-                    throw new IllegalStateException();
-                }
+            switch (searcher.count(query)) {
+            case 0:
+                LogAgent.LOGGER.finer("+justified " + terms.getName());
+                break;
+            case 1:
+                LogAgent.LOGGER.finer("-justified " + terms.getName());
+                throw new AssemblerException(terms.getName());
+            default:
+                throw new IllegalStateException();
             }
+        }
         catch (IOException ex) {
             throw new UndeclaredThrowableException(ex);
         }
 
-	return terms;
+        return terms;
     }
 }

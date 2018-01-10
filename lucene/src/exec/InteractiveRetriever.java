@@ -66,7 +66,7 @@ public class InteractiveRetriever implements AutoCloseable {
             writer = new IndexWriter(directory, config);
 
             QueryParser qp = new QueryParser(DocumentIndexer.CONTENT,
-					     analyzer);
+                                             analyzer);
             this.query = qp.parse(new String(Files.readAllBytes(query)));
         }
         catch (ParseException e) {
@@ -101,23 +101,23 @@ public class InteractiveRetriever implements AutoCloseable {
         Term term = new Term(DocumentIndexer.CONTENT, choice);
         writer.deleteDocuments(term);
         writer.commit();
-	LogAgent.LOGGER.finer("documents " + writer.numDocs());
+        LogAgent.LOGGER.finer("documents " + writer.numDocs());
 
         LogAgent.LOGGER.fine("INDEX: add");
 
         List<Callable<String>> tasks = new ArrayList<Callable<String>>();
         try (DirectoryStream<Path> stream =
              Files.newDirectoryStream(corpus)) {
-                for (Path file : stream) {
-                    DocumentPipeline pipeline = new DocumentPipeline(file);
-                    pipeline
-                        .addJob(new DocumentJustifier(directory))
-                        .addJob(new DocumentUpdater(choice))
-                        .addJob(new DocumentIndexer(writer));
+            for (Path file : stream) {
+                DocumentPipeline pipeline = new DocumentPipeline(file);
+                pipeline
+                    .addJob(new DocumentJustifier(directory))
+                    .addJob(new DocumentUpdater(choice))
+                    .addJob(new DocumentIndexer(writer));
 
-                    tasks.add(pipeline);
-                }
+                tasks.add(pipeline);
             }
+        }
 
         for (Future<String> ft : executors.invokeAll(tasks)) {
             try {
@@ -140,10 +140,10 @@ public class InteractiveRetriever implements AutoCloseable {
         LogAgent.LOGGER.fine("QUERY");
 
         try (IndexReader reader = DirectoryReader.open(directory)) {
-                IndexSearcher searcher = new IndexSearcher(reader);
+            IndexSearcher searcher = new IndexSearcher(reader);
 
-                return searcher.search(query, count);
-            }
+            return searcher.search(query, count);
+        }
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -159,7 +159,7 @@ public class InteractiveRetriever implements AutoCloseable {
         Path corpus = Paths.get(args[1]);
         Path index = Paths.get(args[2]);
         Path relevance = Paths.get(args[3]);
-	Path output = Paths.get(args[4]);
+        Path output = Paths.get(args[4]);
         int count = Integer.parseInt(args[5]);
         int workers = Integer.parseInt(args[6]);
 
@@ -172,40 +172,40 @@ public class InteractiveRetriever implements AutoCloseable {
         }
 
         try (InteractiveRetriever interaction =
-	     new InteractiveRetriever(query, index, workers);
-	     OutputStream outputStream = Files.newOutputStream(output);
-	     PrintStream printer = new PrintStream(outputStream, true)) {
-		int round = 1;
-		SelectionStrategy selector = new SequentialSelector(corpus);
+             new InteractiveRetriever(query, index, workers);
+             OutputStream outputStream = Files.newOutputStream(output);
+             PrintStream printer = new PrintStream(outputStream, true)) {
+            int round = 1;
+            SelectionStrategy selector = new SequentialSelector(corpus);
 
-		for (String choice : selector) {
-		    interaction.index(corpus, choice);
-		    TopDocs hits = interaction.query(count);
+            for (String choice : selector) {
+                interaction.index(corpus, choice);
+                TopDocs hits = interaction.query(count);
 
-		    StringJoiner result = new StringJoiner(",");
-		    result
-			.add(String.valueOf(round))
-			.add(choice)
-			.add(String.valueOf(hits.totalHits));
-		    printer.println(result);
+                StringJoiner result = new StringJoiner(",");
+                result
+                    .add(String.valueOf(round))
+                    .add(choice)
+                    .add(String.valueOf(hits.totalHits));
+                printer.println(result);
 
-		    // int i = 1;
-		    // for (ScoreDoc hit : hits.scoreDocs) {
-		    //     Document doc = searcher.doc(hit.doc);
-		    //     StringJoiner result = new StringJoiner(" ");
-		    //     result
-		    //         .add(String.valueOf(i))
-		    //         .add(doc.get("docno"))
-		    //         .add(String.valueOf(hit.score));
-		    //     System.out.println(result.toString());
-		    //     i += 1;
-		    // }
+                // int i = 1;
+                // for (ScoreDoc hit : hits.scoreDocs) {
+                //     Document doc = searcher.doc(hit.doc);
+                //     StringJoiner result = new StringJoiner(" ");
+                //     result
+                //         .add(String.valueOf(i))
+                //         .add(doc.get("docno"))
+                //         .add(String.valueOf(hit.score));
+                //     System.out.println(result.toString());
+                //     i += 1;
+                // }
 
-		    round++;
-		}
-	    }
-	catch (IOException e) {
-	    throw new UncheckedIOException(e);
-	}
+                round++;
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }
