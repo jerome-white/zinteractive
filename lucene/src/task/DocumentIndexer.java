@@ -31,7 +31,7 @@ public class DocumentIndexer implements Assembler {
         Document doc = new Document();
         String name = terms.getName();
 
-        LogAgent.LOGGER.info(name + " index");
+        LogAgent.LOGGER.finer(name + " index");
 
         doc.add(new StringField(name, "docno", Field.Store.YES));
         doc.add(new TextField(terms.toString(), "content", Field.Store.NO));

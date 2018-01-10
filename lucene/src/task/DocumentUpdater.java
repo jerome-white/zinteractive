@@ -33,7 +33,7 @@ public class DocumentUpdater implements Assembler {
     }
 
     public TermCollection assemble(TermCollection terms) {
-        LogAgent.LOGGER.info(terms.getName() + " unencrypt");
+        LogAgent.LOGGER.finer(terms.getName() + " unencrypt");
 
         TermCollection ptr = terms;
         TermCollection scratch = new TermCollection();

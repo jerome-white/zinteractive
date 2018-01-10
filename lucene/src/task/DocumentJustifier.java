@@ -45,7 +45,7 @@ public class DocumentJustifier implements Assembler {
 
             switch (searcher.count(qry)) {
             case 0:
-                LogAgent.LOGGER.info(terms.getName() + " missing");
+                LogAgent.LOGGER.finer(terms.getName() + " missing");
                 return terms;
             case 1:
                 throw new AssemblerException(terms.getName());
