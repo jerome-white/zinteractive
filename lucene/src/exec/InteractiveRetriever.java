@@ -1,13 +1,15 @@
 package exec;
 
-import java.lang.AutoCloseable;
+import java.io.PrintStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.Files;
 import java.nio.file.DirectoryStream;
 import java.util.List;
+import java.util.Iterator;
 import java.util.ArrayList;
 import java.util.StringJoiner;
 import java.util.logging.Level;
@@ -16,6 +18,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ExecutorService;
+import java.lang.AutoCloseable;
 import java.lang.reflect.UndeclaredThrowableException;
 
 import org.apache.lucene.store.Directory;
@@ -62,7 +65,8 @@ public class InteractiveRetriever implements AutoCloseable {
             IndexWriterConfig config = new IndexWriterConfig(analyzer);
             writer = new IndexWriter(directory, config);
 
-            QueryParser qp = new QueryParser("content", analyzer);
+            QueryParser qp = new QueryParser(DocumentIndexer.CONTENT,
+					     analyzer);
             this.query = qp.parse(new String(Files.readAllBytes(query)));
         }
         catch (ParseException e) {
@@ -94,29 +98,31 @@ public class InteractiveRetriever implements AutoCloseable {
                InterruptedException {
         LogAgent.LOGGER.fine("INDEX: delete");
 
-        Term term = new Term("text", choice);
+        Term term = new Term(DocumentIndexer.CONTENT, choice);
         writer.deleteDocuments(term);
         writer.commit();
+	LogAgent.LOGGER.finer("documents " + writer.numDocs());
 
-        LogAgent.LOGGER.fine("INDEX: identify");
+        LogAgent.LOGGER.fine("INDEX: add");
 
-        List<Callable<String>> tasks = new ArrayList<>();
+        List<Callable<String>> tasks = new ArrayList<Callable<String>>();
         try (DirectoryStream<Path> stream =
              Files.newDirectoryStream(corpus)) {
                 for (Path file : stream) {
-                    DocumentPipeline pipe = new DocumentPipeline(file);
-                    pipe
+                    DocumentPipeline pipeline = new DocumentPipeline(file);
+                    pipeline
                         .addJob(new DocumentJustifier(directory))
                         .addJob(new DocumentUpdater(choice))
                         .addJob(new DocumentIndexer(writer));
-                    tasks.add(pipe);
+
+                    tasks.add(pipeline);
                 }
             }
 
         for (Future<String> ft : executors.invokeAll(tasks)) {
             try {
                 String docno = ft.get();
-                LogAgent.LOGGER.fine(docno);
+                LogAgent.LOGGER.finer("completed " + docno);
             }
             catch (ExecutionException e) {
                 Throwable reason = e.getCause();
@@ -144,7 +150,7 @@ public class InteractiveRetriever implements AutoCloseable {
     }
 
     public static void main(String[] args) {
-        LogAgent.setLevel(Level.FINE);
+        LogAgent.setLevel(Level.FINER);
 
         /*
          *
@@ -153,8 +159,9 @@ public class InteractiveRetriever implements AutoCloseable {
         Path corpus = Paths.get(args[1]);
         Path index = Paths.get(args[2]);
         Path relevance = Paths.get(args[3]);
-        int count = Integer.parseInt(args[4]);
-        int workers = Integer.parseInt(args[5]);
+	Path output = Paths.get(args[4]);
+        int count = Integer.parseInt(args[5]);
+        int workers = Integer.parseInt(args[6]);
 
         /*
          *
@@ -164,29 +171,41 @@ public class InteractiveRetriever implements AutoCloseable {
             workers = procs;
         }
 
+        try (InteractiveRetriever interaction =
+	     new InteractiveRetriever(query, index, workers);
+	     OutputStream outputStream = Files.newOutputStream(output);
+	     PrintStream printer = new PrintStream(outputStream, true)) {
+		int round = 1;
+		SelectionStrategy selector = new SequentialSelector(corpus);
 
-        try (InteractiveRetriever iir = new InteractiveRetriever(query,
-                                                                 index,
-                                                                 workers)) {
-                SelectionStrategy selector = new SequentialSelector(corpus);
-                for (String choice : selector) {
-                    iir.index(corpus, choice);
-                    TopDocs hits = iir.query(count);
+		for (String choice : selector) {
+		    interaction.index(corpus, choice);
+		    TopDocs hits = interaction.query(count);
 
-                    LogAgent.LOGGER.info(choice + " " + hits.totalHits);
+		    StringJoiner result = new StringJoiner(",");
+		    result
+			.add(String.valueOf(round))
+			.add(choice)
+			.add(String.valueOf(hits.totalHits));
+		    printer.println(result);
 
-                    // int i = 1;
-                    // for (ScoreDoc hit : hits.scoreDocs) {
-                    //     Document doc = searcher.doc(hit.doc);
-                    //     StringJoiner result = new StringJoiner(" ");
-                    //     result
-                    //         .add(String.valueOf(i))
-                    //         .add(doc.get("docno"))
-                    //         .add(String.valueOf(hit.score));
-                    //     System.out.println(result.toString());
-                    //     i += 1;
-                    // }
-                }
-            }
+		    // int i = 1;
+		    // for (ScoreDoc hit : hits.scoreDocs) {
+		    //     Document doc = searcher.doc(hit.doc);
+		    //     StringJoiner result = new StringJoiner(" ");
+		    //     result
+		    //         .add(String.valueOf(i))
+		    //         .add(doc.get("docno"))
+		    //         .add(String.valueOf(hit.score));
+		    //     System.out.println(result.toString());
+		    //     i += 1;
+		    // }
+
+		    round++;
+		}
+	    }
+	catch (IOException e) {
+	    throw new UncheckedIOException(e);
+	}
     }
 }
