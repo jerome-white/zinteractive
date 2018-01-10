@@ -11,7 +11,9 @@ import java.util.ArrayList;
 import java.util.StringJoiner;
 import java.util.logging.Level;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ExecutorService;
 import java.lang.reflect.UndeclaredThrowableException;
 
@@ -33,6 +35,8 @@ import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.queryparser.classic.ParseException;
 
 import util.LogAgent;
+import util.TermCollection;
+import task.AssemblerException;
 import task.DocumentIndexer;
 import task.DocumentUpdater;
 import task.DocumentJustifier;
@@ -109,7 +113,29 @@ public class InteractiveRetriever {
                         tasks.add(pipe);
                     }
                 }
-                executors.invokeAll(tasks);
+
+                try {
+                    List<Future<String>> results = executors.invokeAll(tasks);
+                    for (Future<String> ft : results) {
+                        try {
+                            ft.get();
+                        }
+                        catch (ExecutionException e) {
+                            Throwable reason = e.getCause();
+                            String message = reason.toString();
+                            if (reason instanceof AssemblerException) {
+                                LogAgent.LOGGER.info(message);
+                            }
+                            else {
+                                throw new IllegalThreadStateException(message);
+                            }
+                        }
+                    }
+                }
+                catch (InterruptedException e) {
+                    throw new UndeclaredThrowableException(e);
+                }
+
                 writer.commit();
 
                 /*
@@ -140,8 +166,7 @@ public class InteractiveRetriever {
         catch (IOException ex) {
             throw new UncheckedIOException(ex);
         }
-        catch (InterruptedException |
-               ParseException ex) {
+        catch (ParseException ex) {
             throw new UndeclaredThrowableException(ex);
         }
 
