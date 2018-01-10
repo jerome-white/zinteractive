@@ -21,6 +21,9 @@ import util.TermCollection;
  * Write files to the index.
  */
 public class DocumentIndexer implements Assembler {
+    public static final String DOCNO = "docno";
+    public static final String CONTENT = "content";
+
     private IndexWriter index;
 
     public DocumentIndexer(IndexWriter index) {
@@ -31,10 +34,11 @@ public class DocumentIndexer implements Assembler {
         Document doc = new Document();
         String name = terms.getName();
 
-        LogAgent.LOGGER.finer(name + " index");
+        LogAgent.LOGGER.finer("index " + name);
 
-        doc.add(new StringField(name, "docno", Field.Store.YES));
-        doc.add(new TextField(terms.toString(), "content", Field.Store.NO));
+        doc.add(new StringField(name, DOCNO, Field.Store.YES));
+        doc.add(new TextField(terms.toString(), CONTENT, Field.Store.NO));
+
         try {
             index.addDocument(doc);
         }
