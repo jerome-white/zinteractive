@@ -10,9 +10,11 @@ import java.util.concurrent.Callable;
 import java.lang.reflect.UndeclaredThrowableException;
 
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.index.Term;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
@@ -34,40 +36,27 @@ public class DocumentJustifier implements Assembler {
         this.directory = directory;
     }
 
-    private Query getQuery(TermCollection terms) {
-        Analyzer analyzer = new StandardAnalyzer();
-        QueryParser qp = new QueryParser("docno", analyzer);
-
-        try {
-            return qp.parse(terms.getName());
-        }
-        catch (ParseException e) {
-            throw new UndeclaredThrowableException(e);
-        }
-    }
-
     public TermCollection assemble(TermCollection terms) {
         try (IndexReader reader = DirectoryReader.open(directory)) {
                 IndexSearcher searcher = new IndexSearcher(reader);
-
-                Analyzer analyzer = new StandardAnalyzer();
-                QueryParser qp = new QueryParser("docno", analyzer);
-                Query query = qp.parse(terms.getName());
+		Term term = new Term(DocumentIndexer.DOCNO, terms.getName());
+                Query query = new TermQuery(term);
 
                 switch (searcher.count(query)) {
                 case 0:
-                    LogAgent.LOGGER.finer(terms.getName());
-                    return terms;
+                    LogAgent.LOGGER.finer("+justified " + terms.getName());
+		    break;
                 case 1:
+                    LogAgent.LOGGER.finer("-justified " + terms.getName());
                     throw new AssemblerException(terms.getName());
                 default:
                     throw new IllegalStateException();
                 }
             }
-        catch (ParseException | IOException ex) {
-            LogAgent.LOGGER.severe(ex.toString());
+        catch (IOException ex) {
             throw new UndeclaredThrowableException(ex);
         }
 
+	return terms;
     }
 }
