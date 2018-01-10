@@ -1,5 +1,9 @@
 package task;
 
-import java.lang.Exception;
+import java.lang.RuntimeException;
 
-public class AssemblerException extends Exception {}
+public class AssemblerException extends RuntimeException {
+    public AssemblerException(String docno) {
+        super(docno);
+    }
+}

@@ -3,11 +3,10 @@ package task;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Arrays;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Deque;
 import java.util.concurrent.Callable;
 import java.lang.reflect.UndeclaredThrowableException;
 
@@ -25,11 +24,11 @@ import util.TermCollection;
 
 public class DocumentPipeline implements Callable<String> {
     private Path path;
-    private Deque<Assembler> jobs;
+    private List<Assembler> jobs;
 
     public DocumentPipeline(Path path) {
         this.path = path;
-        jobs = new ArrayDeque<Assembler>();
+        jobs = new ArrayList<Assembler>();
     }
 
     public DocumentPipeline addJob(Assembler job) {
@@ -41,13 +40,8 @@ public class DocumentPipeline implements Callable<String> {
     public String call() {
         TermCollection document = new TermCollection(path);
 
-        try {
-            for (Assembler job : jobs) {
-                document = job.assemble(document);
-            }
-        }
-        catch (AssemblerException ae) {
-            return null;
+        for (Assembler job : jobs) {
+            document = job.assemble(document);
         }
 
         return document.getName();

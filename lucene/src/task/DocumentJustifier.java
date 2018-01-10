@@ -34,7 +34,7 @@ public class DocumentJustifier implements Assembler {
         this.directory = directory;
     }
 
-    public TermCollection assemble(TermCollection terms) throws AssemblerException {
+    public TermCollection assemble(TermCollection terms) {
         try {
             Analyzer analyzer = new StandardAnalyzer();
             QueryParser qp = new QueryParser("docno", analyzer);
@@ -48,7 +48,7 @@ public class DocumentJustifier implements Assembler {
                 LogAgent.LOGGER.info(terms.getName() + " missing");
                 return terms;
             case 1:
-                throw new AssemblerException();
+                throw new AssemblerException(terms.getName());
             default:
                 throw new IllegalStateException();
             }
