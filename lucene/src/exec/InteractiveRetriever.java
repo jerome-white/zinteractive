@@ -4,6 +4,7 @@ import java.io.PrintStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
+import java.sql.Timestamp;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.Files;
@@ -202,8 +203,10 @@ public class InteractiveRetriever implements AutoCloseable {
                 interaction.index(corpus, choice);
                 TopDocs hits = interaction.query(count);
 
+		Timestamp now = new Timestamp(System.currentTimeMillis());
                 StringJoiner result = new StringJoiner(",");
                 result
+		    .add(now.toString())
                     .add(String.valueOf(round))
                     .add(choice)
                     .add(String.valueOf(hits.totalHits));
