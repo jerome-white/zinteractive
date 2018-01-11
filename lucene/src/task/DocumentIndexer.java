@@ -31,14 +31,12 @@ public class DocumentIndexer implements Assembler {
     }
 
     public TermCollection assemble(TermCollection terms) {
+        LogAgent.LOGGER.finer("index " + terms.getName());
+
         Document doc = new Document();
-        String name = terms.getName();
 
-        LogAgent.LOGGER.finer("index " + name);
-
-        doc.add(new StringField(name, DOCNO, Field.Store.YES));
-        doc.add(new TextField(terms.toString(), CONTENT, Field.Store.NO));
-
+        doc.add(new StringField(DOCNO, terms.getName(), Field.Store.YES));
+        doc.add(new TextField(CONTENT, terms.toString(), Field.Store.NO));
         try {
             index.addDocument(doc);
         }
