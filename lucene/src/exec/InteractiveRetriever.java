@@ -32,8 +32,9 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.document.Document;
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.analysis.core.WhitespaceAnalyzer;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.queryparser.classic.ParseException;
 
@@ -58,12 +59,14 @@ public class InteractiveRetriever implements AutoCloseable {
         executors = Executors.newFixedThreadPool(workers);
 
         LogAgent.LOGGER.fine("INITIALIZE: Lucene");
-        Analyzer analyzer = new StandardAnalyzer();
+
+        Analyzer analyzer = new WhitespaceAnalyzer();
         try {
             directory = new NIOFSDirectory(index);
 
             IndexWriterConfig config = new IndexWriterConfig(analyzer);
             writer = new IndexWriter(directory, config);
+            writer.commit();
 
             QueryParser qp = new QueryParser(DocumentIndexer.CONTENT,
                                              analyzer);
@@ -83,7 +86,8 @@ public class InteractiveRetriever implements AutoCloseable {
 
     public void index(Path corpus, String choice) {
         try {
-            doIndex(corpus, choice);
+            purge(choice);
+            add(corpus, choice);
         }
         catch (InterruptedException e) {
             throw new UndeclaredThrowableException(e);
@@ -93,17 +97,20 @@ public class InteractiveRetriever implements AutoCloseable {
         }
     }
 
-    private void doIndex(Path corpus, String choice)
-        throws IOException,
-               InterruptedException {
-        LogAgent.LOGGER.fine("INDEX: delete");
+    private void purge(String choice) throws IOException {
+        LogAgent.LOGGER.fine("PURGE");
 
         Term term = new Term(DocumentIndexer.CONTENT, choice);
         writer.deleteDocuments(term);
         writer.commit();
-        LogAgent.LOGGER.finer("documents " + writer.numDocs());
 
-        LogAgent.LOGGER.fine("INDEX: add");
+        LogAgent.LOGGER.finer("documents " + writer.numDocs());
+    }
+
+    private void add(Path corpus, String choice)
+        throws IOException,
+               InterruptedException {
+        LogAgent.LOGGER.fine("INDEX");
 
         List<Callable<String>> tasks = new ArrayList<Callable<String>>();
         try (DirectoryStream<Path> stream =
@@ -143,6 +150,19 @@ public class InteractiveRetriever implements AutoCloseable {
             IndexSearcher searcher = new IndexSearcher(reader);
 
             return searcher.search(query, count);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    public void check() {
+        try (IndexReader reader = DirectoryReader.open(directory)) {
+            for (int i = 0; i < reader.maxDoc(); i++) {
+                Document doc = reader.document(i);
+                LogAgent.LOGGER.info(DocumentIndexer.DOCNO + " " +
+                                     doc.get(DocumentIndexer.DOCNO));
+            }
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -202,6 +222,9 @@ public class InteractiveRetriever implements AutoCloseable {
                 // }
 
                 round++;
+                if (round > 3) {
+                    break;
+                }
             }
         }
         catch (IOException e) {
