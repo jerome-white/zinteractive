@@ -85,10 +85,10 @@ public class InteractiveRetriever implements AutoCloseable {
         executors.shutdown();
     }
 
-    public void index(Path corpus, String choice) {
+    public int index(Path corpus, String choice) {
         try {
             purge(choice);
-            add(corpus, choice);
+            return add(corpus, choice);
         }
         catch (InterruptedException e) {
             throw new UndeclaredThrowableException(e);
@@ -108,7 +108,7 @@ public class InteractiveRetriever implements AutoCloseable {
         LogAgent.LOGGER.finer("documents " + writer.numDocs());
     }
 
-    private void add(Path corpus, String choice)
+    private int add(Path corpus, String choice)
         throws IOException,
                InterruptedException {
         LogAgent.LOGGER.fine("INDEX");
@@ -127,9 +127,11 @@ public class InteractiveRetriever implements AutoCloseable {
             }
         }
 
+        int completed = 0;
         for (Future<String> ft : executors.invokeAll(tasks)) {
             try {
                 String docno = ft.get();
+                completed++;
                 LogAgent.LOGGER.finer("completed " + docno);
             }
             catch (ExecutionException e) {
@@ -142,6 +144,8 @@ public class InteractiveRetriever implements AutoCloseable {
         }
 
         writer.commit();
+
+        return completed;
     }
 
     public TopDocs query(int count) {
@@ -200,14 +204,15 @@ public class InteractiveRetriever implements AutoCloseable {
             SelectionStrategy selector = new SequentialSelector(corpus);
 
             for (String choice : selector) {
-                interaction.index(corpus, choice);
+                int indexed = interaction.index(corpus, choice);
                 TopDocs hits = interaction.query(count);
 
-		Timestamp now = new Timestamp(System.currentTimeMillis());
+                Timestamp now = new Timestamp(System.currentTimeMillis());
                 StringJoiner result = new StringJoiner(",");
                 result
-		    .add(now.toString())
+                    .add(now.toString())
                     .add(String.valueOf(round))
+                    .add(String.valueOf(indexed))
                     .add(choice)
                     .add(String.valueOf(hits.totalHits));
                 printer.println(result);
