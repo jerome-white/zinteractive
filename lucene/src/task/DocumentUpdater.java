@@ -33,10 +33,10 @@ public class DocumentUpdater implements Assembler {
     }
 
     public TermCollection assemble(TermCollection terms) {
+        int changes = 0;
         TermCollection ptr = terms;
         TermCollection scratch = new TermCollection();
 
-        int changes = 0;
         for (String alt : alterations) {
             for (Term term : ptr) {
                 if (term.is(alt)) {
@@ -52,17 +52,20 @@ public class DocumentUpdater implements Assembler {
             ptr = scratch;
             scratch = new TermCollection();
         }
+        if (ptr != terms) {
+            ptr.setLocation(terms.getLocation());
+        }
+
         LogAgent.LOGGER.finer("decrypt " + terms.getName() + " " + changes);
 
-        scratch.setLocation(terms.getLocation());
-        TermCollectionWriter writer = new TermCollectionWriter(scratch);
+        TermCollectionWriter writer = new TermCollectionWriter(ptr);
         try {
-            Files.write(scratch.getLocation(), writer);
+            Files.write(ptr.getLocation(), writer);
         }
         catch (IOException ex) {
             throw new UncheckedIOException(ex);
         }
 
-        return scratch;
+        return ptr;
     }
 }
