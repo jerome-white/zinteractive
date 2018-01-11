@@ -175,7 +175,7 @@ public class InteractiveRetriever implements AutoCloseable {
     }
 
     public static void main(String[] args) {
-        LogAgent.setLevel(Level.FINER);
+        LogAgent.setLevel(Level.FINE);
 
         /*
          *
