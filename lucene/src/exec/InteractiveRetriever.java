@@ -222,9 +222,6 @@ public class InteractiveRetriever implements AutoCloseable {
                 // }
 
                 round++;
-                if (round > 3) {
-                    break;
-                }
             }
         }
         catch (IOException e) {
