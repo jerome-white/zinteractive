@@ -9,20 +9,11 @@ import org.apache.lucene.search.Query;
 
 import util.TermCollection;
 
-public abstract class QueryBuilder {
+public abstract class QueryHandler {
     String query;
 
-    public QueryBuilder(Path query) {
-        try {
-            this.query = new String(Files.readAllBytes(query));
-        }
-        catch (IOException e) {
-            throw new UndeclaredThrowableException(e);
-        }
-    }
-
-    public QueryBuilder(TermCollection terms) {
-        this.query = terms.toString();
+    public QueryHandler(String query) {
+        this.query = query;
     }
 
     public final String toString() {

@@ -46,7 +46,7 @@ import task.DocumentUpdater;
 import task.DocumentJustifier;
 import task.DocumentPipeline;
 import query.StandardQuery;
-import query.QueryBuilder;
+import query.QueryHandler;
 import select.SelectionStrategy;
 import select.SequentialSelector;
 
@@ -188,13 +188,13 @@ public class InteractiveRetriever implements AutoCloseable {
             workers = procs;
         }
 
-        QueryBuilder q = new StandardQuery(query);
-        Query luceneQuery = q.toQuery();
-
         try (InteractiveRetriever interaction =
              new InteractiveRetriever(index, workers);
              OutputStream outputStream = Files.newOutputStream(output);
              PrintStream printer = new PrintStream(outputStream, true)) {
+            QueryHandler q = new StandardQuery(new String(Files.readAllBytes(query)));
+            Query luceneQuery = q.toQuery();
+
             int round = 1;
             SelectionStrategy selector = new SequentialSelector(corpus);
 

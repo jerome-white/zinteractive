@@ -18,24 +18,14 @@ import util.TermCollection;
 public class NGramQuery extends WeightedQuery {
     int min_ngram;
 
-    public NGramQuery(Path query, int min_ngram) {
+    public NGramQuery(String query, int min_ngram) {
         super(query);
 
         this.min_ngram = min_ngram;
     }
 
-    public NGramQuery(Path query) {
+    public NGramQuery(String query) {
         this(query, 4);
-    }
-
-    public NGramQuery(TermCollection terms, int min_ngram) {
-        super(terms);
-
-        this.min_ngram = min_ngram;
-    }
-
-    public NGramQuery(TermCollection terms) {
-        this(terms, 4);
     }
 
     protected void addSubQuery(BooleanQuery.Builder builder, String item) {

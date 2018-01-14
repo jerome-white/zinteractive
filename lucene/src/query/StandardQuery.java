@@ -14,25 +14,16 @@ import org.apache.lucene.queryparser.classic.ParseException;
 import util.TermCollection;
 import task.DocumentIndexer;
 
-public class StandardQuery extends QueryBuilder {
+public class StandardQuery extends QueryHandler {
     private Analyzer analyzer;
 
-    public StandardQuery(Path query, Analyzer analyzer) {
+    public StandardQuery(String query, Analyzer analyzer) {
         super(query);
         this.analyzer = analyzer;
     }
 
-    public StandardQuery(Path query) {
+    public StandardQuery(String query) {
         this(query, new WhitespaceAnalyzer());
-    }
-
-    public StandardQuery(TermCollection terms, Analyzer analyzer) {
-        super(terms);
-        this.analyzer = analyzer;
-    }
-
-    public StandardQuery(TermCollection terms) {
-        this(terms, new WhitespaceAnalyzer());
     }
 
     public Query toQuery() {
