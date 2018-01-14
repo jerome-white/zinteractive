@@ -1,10 +1,10 @@
 #!/bin/bash
 
 #SBATCH --mem=60G
-#SBATCH --time=8:00:00
+#SBATCH --time=36:00:00
 #SBATCH --nodes=1
-#SBATCH --cpus-per-task=12
-#SBATCH --job-name=select-251
+#SBATCH --cpus-per-task=20
+#SBATCH --job-name=select
 
 module try-load jdk/1.8.0_111
 module try-load pbzip2/intel/1.1.13
@@ -37,15 +37,15 @@ find $corpus -name 'WSJQ*' -delete
 java \
     -Xmx$(printf "%0.f" $(bc -l <<< "60 * .95"))g \
     -XX:+UseParallelGC \
-    -XX:ParallelGCThreads=12 \
+    -XX:ParallelGCThreads=20 \
     -classpath `sed -e's/ /:/g'<<< ${cp[@]}` \
     exec.InteractiveRetriever \
-    $BEEGFS/corpus/pause_clobber_lower_symbol/WSJQ00251-0000 \
+    $BEEGFS/corpus/space_alpha_lower_symbol/WSJQ00${1}-0000 \
     $corpus/05 \
     `mktemp --directory --tmpdir=\$SLURM_TMPDIR` \
-    $BEEGFS/qrels/251 \
-    $output/sequential \
+    $BEEGFS/qrels/${1} \
+    $output/sequential-${1} \
     1000 \
-    12
+    20
 
 rm --recursive --force $corpus
