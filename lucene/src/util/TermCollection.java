@@ -27,7 +27,7 @@ public class TermCollection extends TreeSet<Term> {
                     continue;
                 }
 
-                String[] parts = line.split(",", 3);
+                String[] parts = line.split(",", 4);
                 int position = Integer.valueOf(parts[2]);
                 Term term = new Term(parts[0], parts[1], position);
                 add(term);
