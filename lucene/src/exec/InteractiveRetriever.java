@@ -45,18 +45,17 @@ import task.DocumentIndexer;
 import task.DocumentUpdater;
 import task.DocumentJustifier;
 import task.DocumentPipeline;
+import query.StandardQuery;
+import query.QueryBuilder;
 import select.SelectionStrategy;
 import select.SequentialSelector;
 
 public class InteractiveRetriever implements AutoCloseable {
     private IndexWriter writer;
     private ExecutorService executors;
-    private Query query;
     private Directory directory;
 
-    public InteractiveRetriever(Path query,
-                                Path index,
-                                int workers) {
+    public InteractiveRetriever(Path index, int workers) {
         executors = Executors.newFixedThreadPool(workers);
 
         LogAgent.LOGGER.fine("INITIALIZE: Lucene");
@@ -68,13 +67,6 @@ public class InteractiveRetriever implements AutoCloseable {
             IndexWriterConfig config = new IndexWriterConfig(analyzer);
             writer = new IndexWriter(directory, config);
             writer.commit();
-
-            QueryParser qp = new QueryParser(DocumentIndexer.CONTENT,
-                                             analyzer);
-            this.query = qp.parse(new String(Files.readAllBytes(query)));
-        }
-        catch (ParseException e) {
-            throw new UndeclaredThrowableException(e);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -148,7 +140,7 @@ public class InteractiveRetriever implements AutoCloseable {
         return completed;
     }
 
-    public TopDocs query(int count) {
+    public TopDocs query(Query query, int count) {
         LogAgent.LOGGER.fine("QUERY");
 
         try (IndexReader reader = DirectoryReader.open(directory)) {
@@ -196,8 +188,11 @@ public class InteractiveRetriever implements AutoCloseable {
             workers = procs;
         }
 
+        QueryBuilder q = new StandardQuery(query);
+        Query luceneQuery = q.toQuery();
+
         try (InteractiveRetriever interaction =
-             new InteractiveRetriever(query, index, workers);
+             new InteractiveRetriever(index, workers);
              OutputStream outputStream = Files.newOutputStream(output);
              PrintStream printer = new PrintStream(outputStream, true)) {
             int round = 1;
@@ -205,7 +200,7 @@ public class InteractiveRetriever implements AutoCloseable {
 
             for (String choice : selector) {
                 int indexed = interaction.index(corpus, choice);
-                TopDocs hits = interaction.query(count);
+                TopDocs hits = interaction.query(luceneQuery, count);
 
                 Timestamp now = new Timestamp(System.currentTimeMillis());
                 StringJoiner result = new StringJoiner(",");
