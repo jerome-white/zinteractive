@@ -11,6 +11,7 @@ import org.apache.lucene.analysis.core.WhitespaceAnalyzer;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.queryparser.classic.ParseException;
 
+import util.TermCollection;
 import task.DocumentIndexer;
 
 public class StandardQuery extends QueryBuilder {
@@ -23,6 +24,15 @@ public class StandardQuery extends QueryBuilder {
 
     public StandardQuery(Path query) {
         this(query, new WhitespaceAnalyzer());
+    }
+
+    public StandardQuery(TermCollection terms, Analyzer analyzer) {
+        super(terms);
+        this.analyzer = analyzer;
+    }
+
+    public StandardQuery(TermCollection terms) {
+        this(terms, new WhitespaceAnalyzer());
     }
 
     public Query toQuery() {

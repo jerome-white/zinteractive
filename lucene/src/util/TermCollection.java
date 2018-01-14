@@ -15,24 +15,22 @@ public class TermCollection extends TreeSet<Term> {
         super();
     }
 
-    public TermCollection(Path document) {
+    public TermCollection(Path document, boolean hasHeader) {
         try (BufferedReader reader = Files.newBufferedReader(document)) {
-            boolean headerRead = false;
-            while (true) {
+            for (int i = 0; ; i++) {
                 String line = reader.readLine();
                 if (line == null) {
                     break;
                 }
 
-                if (headerRead) {
-                    String[] parts = line.split(",", 3);
-                    int position = Integer.valueOf(parts[2]);
-                    Term term = new Term(parts[0], parts[1], position);
-                    add(term);
+                if (i == 0 && hasHeader) {
+                    continue;
                 }
-                else {
-                    headerRead = true;
-                }
+
+                String[] parts = line.split(",", 3);
+                int position = Integer.valueOf(parts[2]);
+                Term term = new Term(parts[0], parts[1], position);
+                add(term);
             }
         }
         catch (IOException ex) {
@@ -40,6 +38,10 @@ public class TermCollection extends TreeSet<Term> {
         }
 
         setLocation(document);
+    }
+
+    public TermCollection(Path document) {
+        this(document, true);
     }
 
     public String toString() {

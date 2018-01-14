@@ -12,9 +12,15 @@ import org.apache.lucene.search.DisjunctionMaxQuery;
 import org.apache.lucene.search.FuzzyQuery;
 import org.apache.lucene.search.Query;
 
+import util.TermCollection;
+
 public class LooseQuery extends QueryBuilder {
     public LooseQuery(Path query) {
         super(query);
+    }
+
+    public LooseQuery(TermCollection terms) {
+        super(terms);
     }
 
     public Query toQuery() {

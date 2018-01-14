@@ -7,6 +7,8 @@ import java.nio.file.Path;
 
 import org.apache.lucene.search.Query;
 
+import util.TermCollection;
+
 public abstract class QueryBuilder {
     String query;
 
@@ -17,6 +19,10 @@ public abstract class QueryBuilder {
         catch (IOException e) {
             throw new UndeclaredThrowableException(e);
         }
+    }
+
+    public QueryBuilder(TermCollection terms) {
+        this.query = terms.toString();
     }
 
     public final String toString() {

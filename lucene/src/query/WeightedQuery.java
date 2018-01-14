@@ -10,23 +10,20 @@ import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.BoostQuery;
 
 import task.DocumentIndexer;
+import util.TermCollection;
 import util.window.StringWindow;
 import util.window.ComprehensiveStringWindow;
 
 public class WeightedQuery extends QueryBuilder {
-    int minimum_ngram;
-
-    public WeightedQuery(Path query, int minimum_ngram) {
-        super(query);
-
-        this.minimum_ngram = minimum_ngram;
-    }
-
     public WeightedQuery(Path query) {
-        this(query, 4);
+        super(query);
     }
 
-    private Query generate(String item, String reference) {
+    public WeightedQuery(TermCollection terms) {
+        super(terms);
+    }
+
+    protected Query generate(String item, String reference) {
         Term term = new Term(DocumentIndexer.CONTENT, item);
         TermQuery termQuery = new TermQuery(term);
 
@@ -35,15 +32,14 @@ public class WeightedQuery extends QueryBuilder {
         return new BoostQuery(termQuery, boost);
     }
 
+    protected void addSubQuery(BooleanQuery.Builder builder, String item) {}
+
     public Query toQuery() {
         BooleanQuery.Builder bq = new BooleanQuery.Builder();
 
         for (String item : toString().split(" ")) {
             bq.add(generate(item, item), Occur.SHOULD);
-            StringWindow window = new ComprehensiveStringWindow(item, 4);
-            for (String win : window) {
-                bq.add(generate(item, win), Occur.SHOULD);
-            }
+            addSubQuery(bq, item);
         }
 
         return bq.build();
