@@ -9,6 +9,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.Files;
 import java.nio.file.DirectoryStream;
+import java.nio.file.attribute.FileTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Iterator;
 import java.util.ArrayList;
@@ -32,6 +34,7 @@ import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.analysis.Analyzer;
@@ -40,24 +43,25 @@ import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.queryparser.classic.ParseException;
 
 import util.LogAgent;
-import task.AssemblerException;
+import util.RetrievalResult;
+import util.TrecResultsWriter;
 import task.DocumentIndexer;
 import task.DocumentUpdater;
-import task.DocumentJustifier;
-import task.DocumentPipeline;
+import eval.EvaluationMetric;
+import eval.NormalizedDCG;
 import query.NGramQuery;
 import query.QueryHandler;
 import select.SelectionStrategy;
 import select.SequentialSelector;
 
 public class InteractiveRetriever implements AutoCloseable {
+    private Path corpus;
     private IndexWriter writer;
     private ExecutorService executors;
     private Directory directory;
+    private FileTime marker;
 
-    public InteractiveRetriever(Path index, int workers) {
-        executors = Executors.newFixedThreadPool(workers);
-
+    public InteractiveRetriever(Path corpus, Path index, int workers) {
         LogAgent.LOGGER.fine("INITIALIZE: Lucene");
 
         Analyzer analyzer = new WhitespaceAnalyzer();
@@ -71,99 +75,114 @@ public class InteractiveRetriever implements AutoCloseable {
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+
+        this.corpus = corpus;
+        executors = Executors.newFixedThreadPool(workers);
+        marker = FileTime.from(Instant.MIN);
     }
 
     public void close() {
         executors.shutdown();
     }
 
-    public int index(Path corpus, String choice) {
-        try {
-            purge(choice);
-            return add(corpus, choice);
-        }
-        catch (InterruptedException e) {
-            throw new UndeclaredThrowableException(e);
+    private void index() {
+        LogAgent.LOGGER.fine("INDEX");
+
+        List<Callable<Void>> tasks = new ArrayList<>();
+
+        try (DirectoryStream<Path> ds = Files.newDirectoryStream(corpus)) {
+            for (Path file : ds) {
+                FileTime modified = Files.getLastModifiedTime(file);
+                if (modified.compareTo(marker) > 0) {
+                    tasks.add(new DocumentIndexer(file, writer));
+                }
+            }
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-    }
 
-    private void purge(String choice) throws IOException {
-        LogAgent.LOGGER.fine("PURGE");
-
-        Term term = new Term(DocumentIndexer.CONTENT, choice);
-        writer.deleteDocuments(term);
-        writer.commit();
-
-        LogAgent.LOGGER.finer("documents " + writer.numDocs());
-    }
-
-    private int add(Path corpus, String choice)
-        throws IOException,
-               InterruptedException {
-        LogAgent.LOGGER.fine("INDEX");
-
-        List<Callable<String>> tasks = new ArrayList<Callable<String>>();
-        try (DirectoryStream<Path> stream =
-             Files.newDirectoryStream(corpus)) {
-            for (Path file : stream) {
-                DocumentPipeline pipeline = new DocumentPipeline(file);
-                pipeline
-                    .addJob(new DocumentJustifier(directory))
-                    .addJob(new DocumentUpdater(choice))
-                    .addJob(new DocumentIndexer(writer));
-
-                tasks.add(pipeline);
-            }
+        try {
+            executors.invokeAll(tasks);
+        }
+        catch (InterruptedException e) {
+            throw new IllegalThreadStateException();
         }
 
-        int completed = 0;
-        for (Future<String> ft : executors.invokeAll(tasks)) {
-            try {
-                String docno = ft.get();
-                completed++;
-                LogAgent.LOGGER.finer("completed " + docno);
-            }
-            catch (ExecutionException e) {
-                Throwable reason = e.getCause();
-                if (!(reason instanceof AssemblerException)) {
-                    throw new IllegalThreadStateException(reason.toString());
-                }
-                // LogAgent.LOGGER.info(message);
-            }
-        }
-
-        writer.commit();
-
-        return completed;
+        marker = FileTime.from(Instant.now());
     }
 
-    public TopDocs query(Query query, int count) {
-        LogAgent.LOGGER.fine("QUERY");
+    public void update(String choice) {
+        List<Callable<String>> tasks = new ArrayList<>();
 
         try (IndexReader reader = DirectoryReader.open(directory)) {
             IndexSearcher searcher = new IndexSearcher(reader);
 
-            return searcher.search(query, count);
+            Term term = new Term(DocumentIndexer.CONTENT, choice);
+            Query query = new TermQuery(term);
+            TopDocs docs = searcher.search(query, writer.numDocs());
+
+            for (ScoreDoc hit : docs.scoreDocs) {
+                Document doc = searcher.doc(hit.doc);
+                Path target = corpus.resolve(doc.get("docno"));
+
+                tasks.add(new DocumentUpdater(target, choice));
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+
+        try {
+            executors.invokeAll(tasks);
+        }
+        catch (InterruptedException e) {
+            throw new IllegalThreadStateException();
+        }
+    }
+
+    public List<RetrievalResult> query(Query query, int count) {
+        LogAgent.LOGGER.fine("QUERY");
+
+        List<RetrievalResult> aggregate = new ArrayList<>();
+
+        try (IndexReader reader = DirectoryReader.open(directory)) {
+            IndexSearcher searcher = new IndexSearcher(reader);
+            TopDocs results = searcher.search(query, count);
+
+            for (ScoreDoc hit : results.scoreDocs) {
+                String docno = reader
+                    .document(hit.doc)
+                    .get(DocumentIndexer.DOCNO);
+                RetrievalResult rr = new RetrievalResult(docno, hit.score);
+
+                aggregate.add(rr);
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+
+        return aggregate;
+    }
+
+    public int df(String choice) {
+        try (IndexReader reader = DirectoryReader.open(directory)) {
+            Term term = new Term(DocumentIndexer.CONTENT, choice);
+
+            return reader.docFreq(term);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
     }
 
-    public void check() {
-        try (IndexReader reader = DirectoryReader.open(directory)) {
-            for (int i = 0; i < reader.maxDoc(); i++) {
-                Document doc = reader.document(i);
-                LogAgent.LOGGER.info(DocumentIndexer.DOCNO + " " +
-                                     doc.get(DocumentIndexer.DOCNO));
-            }
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+    public double ndf(String choice) {
+        return df(choice) / writer.numDocs();
+    }
+
+    public double idf(String choice) {
+        return Math.log(writer.numDocs() / df(choice));
     }
 
     public static void main(String[] args) {
@@ -177,8 +196,9 @@ public class InteractiveRetriever implements AutoCloseable {
         Path index = Paths.get(args[2]);
         Path relevance = Paths.get(args[3]);
         Path output = Paths.get(args[4]);
-        int count = Integer.parseInt(args[5]);
-        int workers = Integer.parseInt(args[6]);
+        int topic = Integer.parseInt(args[5]);
+        int count = Integer.parseInt(args[6]);
+        int workers = Integer.parseInt(args[7]);
 
         /*
          *
@@ -189,9 +209,11 @@ public class InteractiveRetriever implements AutoCloseable {
         }
 
         try (InteractiveRetriever interaction =
-             new InteractiveRetriever(index, workers);
+             new InteractiveRetriever(index, corpus, workers);
              OutputStream outputStream = Files.newOutputStream(output);
              PrintStream printer = new PrintStream(outputStream, true)) {
+            EvaluationMetric evaluator = new NormalizedDCG(relevance, topic);
+
             String queryString = new String(Files.readAllBytes(query));
             QueryHandler q = new NGramQuery(queryString);
             Query luceneQuery = q.toQuery();
@@ -199,31 +221,34 @@ public class InteractiveRetriever implements AutoCloseable {
             int round = 1;
             SelectionStrategy selector = new SequentialSelector(corpus);
 
+            interaction.index();
+
             for (String choice : selector) {
-                int indexed = interaction.index(corpus, choice);
-                TopDocs hits = interaction.query(luceneQuery, count);
+                double frequency = interaction.ndf(choice);
+                interaction.update(choice);
+                interaction.index();
+                List<RetrievalResult> hits = interaction.query(luceneQuery,
+                                                               count);
+
+                StringJoiner fname = new StringJoiner("-");
+                fname
+                    .add(String.valueOf(round))
+                    .add(choice);
+                Path destination = output.resolve(fname.toString());
+                TrecResultsWriter writer = new TrecResultsWriter(hits);
+                Files.write(destination, writer);
+
+                double metric = evaluator.evaluate(hits);
 
                 Timestamp now = new Timestamp(System.currentTimeMillis());
                 StringJoiner result = new StringJoiner(",");
                 result
                     .add(now.toString())
                     .add(String.valueOf(round))
-                    .add(String.valueOf(indexed))
                     .add(choice)
-                    .add(String.valueOf(hits.totalHits));
-                printer.println(result);
-
-                // int i = 1;
-                // for (ScoreDoc hit : hits.scoreDocs) {
-                //     Document doc = searcher.doc(hit.doc);
-                //     StringJoiner result = new StringJoiner(" ");
-                //     result
-                //         .add(String.valueOf(i))
-                //         .add(doc.get("docno"))
-                //         .add(String.valueOf(hit.score));
-                //     System.out.println(result.toString());
-                //     i += 1;
-                // }
+                    .add(String.valueOf(frequency))
+                    .add(String.valueOf(metric));
+                LogAgent.LOGGER.info(result.toString());
 
                 round++;
             }

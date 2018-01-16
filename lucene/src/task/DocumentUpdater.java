@@ -3,6 +3,7 @@ package task;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.concurrent.Callable;
 import java.util.Arrays;
 import java.util.ArrayList;
@@ -17,27 +18,25 @@ import util.TermCollectionWriter;
 /*
  * Decrypt and re-write documents (to disk) that require updating.
  */
-public class DocumentUpdater implements Assembler {
+public class DocumentUpdater implements Callable<String> {
+    private Path document;
     private Collection<String> alterations;
 
-    public DocumentUpdater(Collection<String> alterations) {
+    public DocumentUpdater(Path document, Collection<String> alterations) {
+        this.document = document;
         this.alterations = alterations;
     }
 
-    public DocumentUpdater(String alteration) {
-        this(Arrays.asList(alteration));
+    public DocumentUpdater(Path document, String alteration) {
+        this(document, Arrays.asList(alteration));
     }
 
-    public DocumentUpdater() {
-        this(new ArrayList<String>());
-    }
-
-    public TermCollection assemble(TermCollection terms) {
+    public String call() {
         int changes = 0;
-        TermCollection ptr = terms;
-        TermCollection scratch = new TermCollection();
+        TermCollection ptr = new TermCollection(document);
 
         for (String alt : alterations) {
+            TermCollection scratch = new TermCollection();
             for (Term term : ptr) {
                 if (term.is(alt)) {
                     scratch.add(term.decrypt());
@@ -46,26 +45,20 @@ public class DocumentUpdater implements Assembler {
                 else {
                     scratch.add(term);
                 }
-                // Term t = term.is(alt) ? term.decrypt() : term;
-                // scratch.add(t);
             }
             ptr = scratch;
-            scratch = new TermCollection();
-        }
-        if (ptr != terms) {
-            ptr.setLocation(terms.getLocation());
         }
 
-        LogAgent.LOGGER.finer("decrypt " + terms.getName() + " " + changes);
+        LogAgent.LOGGER.finer("decrypt " + ptr.getName() + " " + changes);
 
         TermCollectionWriter writer = new TermCollectionWriter(ptr);
         try {
-            Files.write(ptr.getLocation(), writer);
+            Files.write(document, writer);
         }
         catch (IOException ex) {
             throw new UncheckedIOException(ex);
         }
 
-        return ptr;
+        return ptr.getName();
     }
 }

@@ -45,6 +45,7 @@ java \
     `mktemp --directory --tmpdir=\$SLURM_TMPDIR` \
     $BEEGFS/qrels/${1} \
     $output/sequential-${1} \
+    ${1} \
     1000 \
     20
 

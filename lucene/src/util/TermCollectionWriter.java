@@ -9,7 +9,7 @@ public class TermCollectionWriter implements Iterator<String>,
     private StringJoiner header;
     private Iterator<Term> itr;
 
-    public TermCollectionWriter(TermCollection collection) {
+    public TermCollectionWriter(Iterable<Term> collection) {
         itr = collection.iterator();
         header = new StringJoiner(",");
         header
