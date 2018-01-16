@@ -241,7 +241,7 @@ public class InteractiveRetriever implements AutoCloseable {
                 Timestamp now = new Timestamp(System.currentTimeMillis());
                 StringJoiner result = new StringJoiner(",");
                 result
-		    .add("REPORT")
+                    .add("REPORT")
                     .add(now.toString())
                     .add(String.valueOf(round))
                     .add(choice)
