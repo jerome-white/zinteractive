@@ -36,8 +36,8 @@ public class NormalizedDCG extends EvaluationMetric {
         Iterator<Integer> authority = relevantScores.iterator();
         Iterator<RetrievalResult> estimates = results.iterator();
 
-        for (int i = 0; estimates.hasNext(); i++) {
-            double reduction = Math.log(2 + i); // since i starts at 0
+        for (int i = 1; estimates.hasNext(); i++) {
+            double reduction = Math.log(1 + i);
 
             score = getScore(estimates.next().getDocument());
             dcg += gain(score) / reduction;
