@@ -9,8 +9,8 @@
 module try-load jdk/1.8.0_111
 module try-load pbzip2/intel/1.1.13
 
-module try-load apache-ant/1.9.8
-ant clean compile || exit 1
+# module try-load apache-ant/1.9.8
+# ant clean compile || exit 1
 
 corpus=`mktemp --directory --tmpdir=$BEEGFS`
 run=$SCRATCH/zrt/wsj/2017_1126
