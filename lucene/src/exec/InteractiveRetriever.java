@@ -209,9 +209,7 @@ public class InteractiveRetriever implements AutoCloseable {
         }
 
         try (InteractiveRetriever interaction =
-             new InteractiveRetriever(index, corpus, workers);
-             OutputStream outputStream = Files.newOutputStream(output);
-             PrintStream printer = new PrintStream(outputStream, true)) {
+             new InteractiveRetriever(index, corpus, workers)) {
             EvaluationMetric evaluator = new NormalizedDCG(relevance, topic);
 
             String queryString = new String(Files.readAllBytes(query));
