@@ -37,7 +37,7 @@ public class TermCollection extends TreeSet<Term> {
             throw new UncheckedIOException(ex);
         }
 
-        setLocation(document);
+        this.document = document;
     }
 
     public TermCollection(Path document) {
@@ -61,12 +61,5 @@ public class TermCollection extends TreeSet<Term> {
 
     public Path getLocation() {
         return document;
-    }
-
-    public void setLocation(Path path) {
-        if (document != null) {
-            throw new IllegalArgumentException();
-        }
-        document = path;
     }
 }
