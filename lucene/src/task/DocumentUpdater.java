@@ -33,25 +33,15 @@ public class DocumentUpdater implements Callable<String> {
 
     public String call() {
         int changes = 0;
-        TermCollection ptr = new TermCollection(document);
+        TermCollection terms = new TermCollection(document);
+
+        LogAgent.LOGGER.finer("decrypt " + terms.getName());
 
         for (String alt : alterations) {
-            TermCollection scratch = new TermCollection();
-            for (Term term : ptr) {
-                if (term.is(alt)) {
-                    scratch.add(term.decrypt());
-                    changes++;
-                }
-                else {
-                    scratch.add(term);
-                }
-            }
-            ptr = scratch;
+            terms = terms.decrypt(alt);
         }
 
-        LogAgent.LOGGER.finer("decrypt " + ptr.getName() + " " + changes);
-
-        TermCollectionWriter writer = new TermCollectionWriter(ptr);
+        TermCollectionWriter writer = new TermCollectionWriter(terms);
         try {
             Files.write(document, writer);
         }
@@ -59,6 +49,6 @@ public class DocumentUpdater implements Callable<String> {
             throw new UncheckedIOException(ex);
         }
 
-        return ptr.getName();
+        return terms.getName();
     }
 }

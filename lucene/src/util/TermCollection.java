@@ -5,13 +5,15 @@ import java.io.BufferedReader;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.nio.file.Files;
-import java.util.StringJoiner;
+import java.util.Set;
 import java.util.TreeSet;
+import java.util.HashSet;
+import java.util.StringJoiner;
 
 public class TermCollection extends TreeSet<Term> {
     private Path document;
 
-    public TermCollection() {
+    private TermCollection() {
         super();
     }
 
@@ -61,5 +63,43 @@ public class TermCollection extends TreeSet<Term> {
 
     public Path getLocation() {
         return document;
+    }
+
+    public TermCollection decrypt(String target) {
+        boolean altered = false;
+        TermCollection decrypted = new TermCollection();
+
+        for (Term term : this) {
+            if (term.is(target)) {
+                decrypted.add(term.decrypt());
+                altered = true;
+            }
+            else {
+                decrypted.add(term);
+            }
+        }
+
+        if (!altered) {
+            throw new IllegalArgumentException(target);
+        }
+
+        decrypted.document = document;
+
+        return decrypted;
+    }
+
+    public TermCollection decrypt() {
+        Set<String> terms = new HashSet<>();
+        TermCollection tc = this;
+
+        for (Term term : this) {
+            String pt = term.toString();
+            if (!terms.contains(pt)) {
+                tc = tc.decrypt(pt);
+                terms.add(pt);
+            }
+        }
+
+        return tc;
     }
 }
