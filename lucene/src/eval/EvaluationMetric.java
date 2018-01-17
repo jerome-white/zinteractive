@@ -6,8 +6,9 @@ import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.nio.file.Files;
 import java.util.Map;
-import java.util.HashMap;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Collections;
 
 import org.apache.lucene.search.ScoreDoc;
 
@@ -17,7 +18,6 @@ public abstract class EvaluationMetric {
     protected final Map<String, Integer> judgements;
 
     public EvaluationMetric(Path qrels, int topic) {
-        boolean hasRelevant = false;
         judgements = new HashMap<String, Integer>();
 
         try (BufferedReader reader = Files.newBufferedReader(qrels)) {
@@ -27,11 +27,9 @@ public abstract class EvaluationMetric {
                     break;
                 }
 
-                String[] parts = line.split(" ");
+                String[] parts = line.trim().split("\\s+");
                 if (Integer.valueOf(parts[0]) == topic) {
-                    int score = Integer.valueOf(parts[3]);
-                    judgements.put(parts[2], score);
-                    hasRelevant |= isRelevant(score);
+                    judgements.put(parts[2], Integer.valueOf(parts[3]));
                 }
             }
         }
@@ -39,7 +37,8 @@ public abstract class EvaluationMetric {
             throw new UncheckedIOException(e);
         }
 
-        if (!hasRelevant) {
+        int mostRelevant = Collections.max(judgements.values());
+        if (!isRelevant(mostRelevant)) {
             throw new IllegalArgumentException(qrels.toString());
         }
     }
@@ -56,5 +55,12 @@ public abstract class EvaluationMetric {
         return judgements.getOrDefault(document, 0);
     }
 
-    public abstract double evaluate(List<RetrievalResult> results);
+    public double evaluate(List<RetrievalResult> results) {
+        if (results.isEmpty()) {
+            throw new IllegalArgumentException();
+        }
+        return doEvaluation(results);
+    }
+
+    protected abstract double doEvaluation(List<RetrievalResult> results);
 }

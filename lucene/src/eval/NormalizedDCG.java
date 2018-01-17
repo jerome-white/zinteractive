@@ -28,7 +28,7 @@ public class NormalizedDCG extends EvaluationMetric {
         return Math.pow(2, score) - 1;
     }
 
-    public double evaluate(List<RetrievalResult> results) {
+    protected double doEvaluation(List<RetrievalResult> results) {
         int score;
         double dcg = 0;
         double idcg = 0;

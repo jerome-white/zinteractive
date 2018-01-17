@@ -217,6 +217,7 @@ public class InteractiveRetriever implements AutoCloseable {
             Query luceneQuery = q.toQuery();
 
             int round = 1;
+            double metric;
             SelectionStrategy selector = new SequentialSelector(corpus);
 
             interaction.index();
@@ -236,7 +237,13 @@ public class InteractiveRetriever implements AutoCloseable {
                 TrecResultsWriter writer = new TrecResultsWriter(hits);
                 Files.write(destination, writer);
 
-                double metric = evaluator.evaluate(hits);
+                try {
+                    metric = evaluator.evaluate(hits);
+                }
+                catch (IllegalArgumentException e) {
+                    LogAgent.LOGGER.warning("No results " + choice);
+                    metric = 0;
+                }
 
                 Timestamp now = new Timestamp(System.currentTimeMillis());
                 StringJoiner result = new StringJoiner(",");
