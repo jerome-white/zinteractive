@@ -220,6 +220,7 @@ public class InteractiveRetriever implements AutoCloseable {
 
             for (String choice : selector) {
                 int frequency = interaction.df(choice);
+
                 interaction.update(choice);
                 interaction.index();
                 List<RetrievalResult> hits = interaction.query(luceneQuery,
