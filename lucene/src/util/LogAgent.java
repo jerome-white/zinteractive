@@ -10,14 +10,15 @@ public class LogAgent {
         Logger.getLogger(LogAgent.class.getName());
 
     public static final void setLevel(Level level) {
-        LOGGER.setLevel(level);
-
-        // for (Handler handler : LOGGER.getHandlers()) {
-        //     handler.setLevel(level);
-        // }
+        for (Handler handler : LOGGER.getHandlers()) {
+            LOGGER.removeHandler(handler);
+        }
 
         Handler handler = new ConsoleHandler();
         handler.setLevel(level);
+
+	LOGGER.setUseParentHandlers(false);
         LOGGER.addHandler(handler);
+	LOGGER.setLevel(level);
     }
 }
