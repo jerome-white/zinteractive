@@ -85,7 +85,7 @@ public class InteractiveRetriever implements AutoCloseable {
         executors.shutdown();
     }
 
-    private void index() {
+    public void index() {
         LogAgent.LOGGER.fine("INDEX");
 
         List<Callable<Void>> tasks = new ArrayList<>();
@@ -120,7 +120,7 @@ public class InteractiveRetriever implements AutoCloseable {
 
             Term term = new Term(DocumentIndexer.CONTENT, choice);
             Query query = new TermQuery(term);
-            TopDocs docs = searcher.search(query, writer.numDocs());
+            TopDocs docs = searcher.search(query, length());
 
             for (ScoreDoc hit : docs.scoreDocs) {
                 Document doc = searcher.doc(hit.doc);
@@ -177,12 +177,8 @@ public class InteractiveRetriever implements AutoCloseable {
         }
     }
 
-    public double ndf(String choice) {
-        return df(choice) / writer.numDocs();
-    }
-
-    public double idf(String choice) {
-        return Math.log(writer.numDocs() / df(choice));
+    public int length() {
+	return writer.numDocs();
     }
 
     public static void main(String[] args) {
@@ -209,7 +205,7 @@ public class InteractiveRetriever implements AutoCloseable {
         }
 
         try (InteractiveRetriever interaction =
-             new InteractiveRetriever(index, corpus, workers)) {
+             new InteractiveRetriever(corpus, index, workers)) {
             EvaluationMetric evaluator = new NormalizedDCG(relevance, topic);
 
             String queryString = new String(Files.readAllBytes(query));
@@ -223,7 +219,7 @@ public class InteractiveRetriever implements AutoCloseable {
             interaction.index();
 
             for (String choice : selector) {
-                double frequency = interaction.ndf(choice);
+                int frequency = interaction.df(choice);
                 interaction.update(choice);
                 interaction.index();
                 List<RetrievalResult> hits = interaction.query(luceneQuery,
@@ -248,13 +244,14 @@ public class InteractiveRetriever implements AutoCloseable {
                 Timestamp now = new Timestamp(System.currentTimeMillis());
                 StringJoiner result = new StringJoiner(",");
                 result
-                    .add("REPORT")
+                    .add(String.valueOf(topic))
                     .add(now.toString())
                     .add(String.valueOf(round))
                     .add(choice)
                     .add(String.valueOf(frequency))
+		    .add(String.valueOf(interaction.length()))
                     .add(String.valueOf(metric));
-                LogAgent.LOGGER.info(result.toString());
+                LogAgent.LOGGER.info("REPORT " + result.toString());
 
                 round++;
             }
