@@ -96,8 +96,10 @@ public class InteractiveRetriever implements AutoCloseable {
                     tasks.add(new DocumentIndexer(file, writer));
                 }
             }
-            executors.invokeAll(tasks);
-            writer.commit();
+            if (!tasks.empty()) {
+                executors.invokeAll(tasks);
+                writer.commit();
+            }
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
