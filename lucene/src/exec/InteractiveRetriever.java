@@ -223,20 +223,21 @@ public class InteractiveRetriever implements AutoCloseable {
                 List<RetrievalResult> hits = interaction.query(luceneQuery,
                                                                count);
 
-                StringJoiner fname = new StringJoiner("-");
-                fname
-                    .add(String.valueOf(round))
-                    .add(choice);
-                Path destination = output.resolve(fname.toString());
-                TrecResultsWriter writer = new TrecResultsWriter(hits);
-                Files.write(destination, writer);
-
-                try {
-                    metric = evaluator.evaluate(hits);
-                }
-                catch (IllegalArgumentException e) {
-                    LogAgent.LOGGER.warning("No results " + choice);
+                if (hits.isEmpty()) {
                     metric = 0;
+                    LogAgent.LOGGER.warning("No results " + choice);
+                }
+                else {
+                    metric = evaluator.evaluate(hits);
+
+                    StringJoiner fname = new StringJoiner("-");
+                    fname
+                        .add(String.valueOf(round))
+                        .add(choice);
+                    Path destination = output.resolve(fname.toString());
+                    TrecResultsWriter writer = new TrecResultsWriter(hits,
+                                                                     topic);
+                    Files.write(destination, writer);
                 }
 
                 Timestamp now = new Timestamp(System.currentTimeMillis());
