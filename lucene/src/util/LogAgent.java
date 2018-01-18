@@ -17,8 +17,8 @@ public class LogAgent {
         Handler handler = new ConsoleHandler();
         handler.setLevel(level);
 
-	LOGGER.setUseParentHandlers(false);
+        LOGGER.setUseParentHandlers(false);
         LOGGER.addHandler(handler);
-	LOGGER.setLevel(level);
+        LOGGER.setLevel(level);
     }
 }
