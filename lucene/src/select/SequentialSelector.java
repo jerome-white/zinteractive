@@ -45,6 +45,9 @@ public class SequentialSelector extends SelectionTemplate {
         while (!files.isEmpty()) {
             if (!ptr.hasNext()) {
                 Path path = files.pop();
+
+                LogAgent.LOGGER.finer(path.toString());
+
                 TermCollection terms = new TermCollection(path);
                 ptr = terms.iterator();
             }
