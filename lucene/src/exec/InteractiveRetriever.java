@@ -70,7 +70,6 @@ public class InteractiveRetriever implements AutoCloseable {
 
             IndexWriterConfig config = new IndexWriterConfig(analyzer);
             writer = new IndexWriter(directory, config);
-            writer.commit();
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -97,13 +96,11 @@ public class InteractiveRetriever implements AutoCloseable {
                     tasks.add(new DocumentIndexer(file, writer));
                 }
             }
+            executors.invokeAll(tasks);
+            writer.commit();
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
-        }
-
-        try {
-            executors.invokeAll(tasks);
         }
         catch (InterruptedException e) {
             throw new IllegalThreadStateException();
@@ -178,7 +175,7 @@ public class InteractiveRetriever implements AutoCloseable {
     }
 
     public int length() {
-	return writer.numDocs();
+        return writer.numDocs();
     }
 
     public static void main(String[] args) {
@@ -250,7 +247,7 @@ public class InteractiveRetriever implements AutoCloseable {
                     .add(String.valueOf(round))
                     .add(choice)
                     .add(String.valueOf(frequency))
-		    .add(String.valueOf(interaction.length()))
+                    .add(String.valueOf(interaction.length()))
                     .add(String.valueOf(metric));
                 LogAgent.LOGGER.info("REPORT " + result.toString());
 
