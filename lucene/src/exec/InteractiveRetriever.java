@@ -213,7 +213,10 @@ public class InteractiveRetriever implements AutoCloseable {
 
             int round = 1;
             double metric;
-            SelectionStrategy selector = new SequentialSelector(corpus);
+
+	    SystemFeedback feedback = new DocumentFeedback();
+            SelectionStrategy selector = new SequentialSelector(corpus,
+								feedback);
 
             interaction.index();
 
@@ -224,6 +227,7 @@ public class InteractiveRetriever implements AutoCloseable {
                 interaction.index();
                 List<RetrievalResult> hits = interaction.query(luceneQuery,
                                                                count);
+		feedback.add(hits);
 
                 if (hits.isEmpty()) {
                     metric = 0;
