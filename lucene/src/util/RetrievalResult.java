@@ -1,5 +1,7 @@
 package util;
 
+import java.util.Objects;
+
 public class RetrievalResult implements Comparable<RetrievalResult> {
     private final String document;
     private final double score;
@@ -10,7 +12,7 @@ public class RetrievalResult implements Comparable<RetrievalResult> {
     }
 
     public int compareTo(RetrievalResult o) {
-        return Double.compare(o.getScore(), score); // descending!
+        return Double.compare(o.score, score); // descending!
     }
 
     public String getDocument() {
@@ -19,5 +21,13 @@ public class RetrievalResult implements Comparable<RetrievalResult> {
 
     public double getScore() {
         return score;
+    }
+
+    public double distance(RetrievalResult other) {
+	return score - other.score;
+    }
+
+    public int hashCode() {
+	return Objects.hash(document, score);
     }
 }
