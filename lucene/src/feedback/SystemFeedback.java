@@ -1,11 +1,11 @@
 package feedback;
 
-import java.lang.Iterable;
+import java.util.Map;
 
 import util.RetrievalResult;
 
 public interface SystemFeedback {
-    public void add(Iterable<RetrievalResult> documents);
-    public Iterable<RetrievalResult> latestResults();
-    public Iterable<RetrievalResult> deltaRankings();
+    public void add(Iterable<RetrievalResult> results);
+    public Iterable<String> getRankings();
+    public Map<String, Integer> getDeltas();
 }
