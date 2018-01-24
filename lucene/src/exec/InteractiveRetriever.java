@@ -53,6 +53,8 @@ import query.NGramQuery;
 import query.QueryHandler;
 import select.SelectionStrategy;
 import select.SequentialSelector;
+import feedback.SystemFeedback;
+import feedback.IterativeFeedback;
 
 public class InteractiveRetriever implements AutoCloseable {
     private Path corpus;
@@ -214,9 +216,8 @@ public class InteractiveRetriever implements AutoCloseable {
             int round = 1;
             double metric;
 
-	    SystemFeedback feedback = new DocumentFeedback();
-            SelectionStrategy selector = new SequentialSelector(corpus,
-								feedback);
+            SystemFeedback feedback = new IterativeFeedback();
+            SelectionStrategy selector = new SequentialSelector(corpus);
 
             interaction.index();
 
@@ -225,9 +226,9 @@ public class InteractiveRetriever implements AutoCloseable {
 
                 interaction.update(choice);
                 interaction.index();
-                List<RetrievalResult> hits = interaction.query(luceneQuery,
-                                                               count);
-		feedback.add(hits);
+                List<RetrievalResult> hits = interaction
+                    .query(luceneQuery, count);
+                feedback.add(hits);
 
                 if (hits.isEmpty()) {
                     metric = 0;
@@ -241,8 +242,8 @@ public class InteractiveRetriever implements AutoCloseable {
                         .add(String.valueOf(round))
                         .add(choice);
                     Path destination = output.resolve(fname.toString());
-                    TrecResultsWriter writer = new TrecResultsWriter(hits,
-                                                                     topic);
+                    TrecResultsWriter writer = new
+                        TrecResultsWriter(hits, topic);
                     Files.write(destination, writer);
                 }
 
@@ -258,6 +259,7 @@ public class InteractiveRetriever implements AutoCloseable {
                     .add(String.valueOf(metric));
                 LogAgent.LOGGER.info("REPORT " + result.toString());
 
+                selector.setFeedback(feedback);
                 round++;
             }
         }
