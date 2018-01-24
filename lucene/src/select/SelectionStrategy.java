@@ -1,7 +1,7 @@
 package select;
 
-import report.Feedback;
+import feedback.SystemFeedback;
 
 public interface SelectionStrategy extends Iterable<String> {
-    public void setFeedback(Feedback feedback);
+    public void setFeedback(SystemFeedback feedback);
 }
