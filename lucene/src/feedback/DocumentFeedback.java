@@ -2,6 +2,7 @@ package feedback;
 
 import java.util.Deque;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.SortedSet;
 import java.util.LinkedList;
 
@@ -38,21 +39,24 @@ public class DocumentFeedback implements SystemFeedback {
     public Iterable<RetrievalResult> latestResults() {
 	return history.peekLast();
     }
+
+    public boolean isLoaded() {
+	return history.size() > 1;
+    }
     
     public Iterable<RetrievalResult> deltaRankings() {
-	SortedSet<RetrievalResult> ranking = new HashSet<>();
-
-	Iterator<SortedSet<RetrievalResult>> history.descendingIterator();
-	try {
-	    SortedSet<RetrievalResult> current = history.next();
-	    SortedSet<RetrievalResult> previous = history.next();
-	}
-	catch (NoSuchElementException e) {
+	if (!isLoaded()) {
 	    throw new IllegalStateException();
 	}
+	
+	SortedSet<RetrievalResult> ranking = new HashSet<>();
 
-	for (RetrievalResult source : previous) {
-	    RetrievalResult target = current.get(source);
+	Iterator<SortedSet<RetrievalResult>> itr=history.descendingIterator();
+	SortedSet<RetrievalResult> ultimate = itr.next();
+	SortedSet<RetrievalResult> penultimate = itr.next();
+
+	for (RetrievalResult source : penultimate) {
+	    RetrievalResult target = ultimate.get(source);
 	    int delta = target.difference(source);
 
 	    ranking.add(new RetrievalResult(source.getDocument(), delta));
