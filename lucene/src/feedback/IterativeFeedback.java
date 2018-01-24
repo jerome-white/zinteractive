@@ -1,10 +1,9 @@
 package feedback;
 
-import java.util.Deque;
-import java.util.TreeSet;
-import java.util.Iterator;
-import java.util.SortedSet;
-import java.util.LinkedList;
+import java.util.Map;
+import java.util.List;
+import java.util.HashMap;
+import java.util.ArrayList;
 
 import util.RetrievalResult;
 
@@ -21,7 +20,7 @@ public class IterativeFeedback implements SystemFeedback {
         List<String> updatedRanking = new ArrayList<>();
 
         delta.clear();
-        
+
         for (RetrievalResult res : results) {
             String doc = res.getDocument();
 
@@ -39,7 +38,7 @@ public class IterativeFeedback implements SystemFeedback {
     public Iterable<String> getRankings() {
         return ranking;
     }
-    
+
     public Map<String, Integer> getDeltas() {
         return delta;
     }
