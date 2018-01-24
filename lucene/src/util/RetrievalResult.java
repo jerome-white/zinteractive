@@ -22,12 +22,4 @@ public class RetrievalResult implements Comparable<RetrievalResult> {
     public double getScore() {
         return score;
     }
-
-    public double distance(RetrievalResult other) {
-	return score - other.score;
-    }
-
-    public int hashCode() {
-	return Objects.hash(document, score);
-    }
 }
