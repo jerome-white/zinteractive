@@ -16,7 +16,7 @@ public class IterativeFeedback implements SystemFeedback {
         delta = new HashMap<>();
     }
 
-    public void add(Iterable<RetrievalResult> results) {
+    public void addRankings(Iterable<RetrievalResult> results) {
         List<String> updatedRanking = new ArrayList<>();
 
         delta.clear();

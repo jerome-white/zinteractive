@@ -228,7 +228,7 @@ public class InteractiveRetriever implements AutoCloseable {
                 interaction.index();
                 List<RetrievalResult> hits = interaction
                     .query(luceneQuery, count);
-                feedback.add(hits);
+                feedback.addRankings(hits);
 
                 if (hits.isEmpty()) {
                     metric = 0;
